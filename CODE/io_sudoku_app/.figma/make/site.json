@@ -1,0 +1,10 @@
+{
+  "description": "Streamline I/O signal allocation for industrial automation engineers by efficiently mapping signals to specific hardware slots with full rule enforcement and traceability.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
