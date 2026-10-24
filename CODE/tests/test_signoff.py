@@ -46,4 +46,4 @@ def test_errors_still_win_over_signoffs():
     from io_sudoku.core.pipeline import solve
     from io_sudoku.samples import case_bytes
     bad = solve(case_bytes("07_tag_errors.xlsx"))
-    assert assess(bad, _all(bad, APPROVED)).status == "DRAFT"
+    assert assess(bad, _all(bad, APPROVED)).status == "BLOCKED"

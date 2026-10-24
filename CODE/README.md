@@ -22,8 +22,13 @@ Open the address Streamlit prints, press **Try With Sample Data**, and explore t
 
 Moving around and fixing things:
 
-- **Search bar** (top of every page): type a few letters to jump to any page, section, tag, cable or question;
-  the matching runs in your browser, and Enter on a misspelt word takes you to the closest match.
+- **Search bar** (top of every page): type a few letters to jump to any page or section of the app; the matching
+  runs in your browser, and Enter on a misspelt word takes you to the closest match. (Tags and cables are searched
+  where they live: **Why Is It Here?**, the TQ Board and the Files viewer.)
+- **Links in sentences**: when a message sends you somewhere ("open the TQ Board", "on the Revision view"), the
+  page name is a link that takes you straight there, to the right tab and section, without reloading the page.
+- **Short questions**: long questions on the TQ Board show as one short line; point at the small **i** next to
+  one to read the whole text, the suggested fix and the owner.
 - **Edit File**: change any cell of the uploaded file in the page. Every **✎ Edit** button (Upload, and each error
   and warning on the TQ Board) opens this page at the exact cell and brings you back when you save. Changes are
   listed, can be undone, and can be downloaded as the edited file.
@@ -51,7 +56,9 @@ bundles file by file. The viewer is read-only; **Download This View (.csv)** exp
 .venv/bin/python -m io_sudoku audit SOME_ALLOCATION.xlsx --out out/   # health-check any allocation
 ```
 
-Exit codes: `0` ISSUE-READY, `1` DRAFT (open TQs), `2` BLOCKED. Run `--help` on any command for its options.
+Exit codes: `0` the outputs were written (the readiness status is printed and is part of the file names),
+`1` the input could not be read or nothing could be allocated, `2` wrong command-line arguments.
+Run `--help` on any command for its options.
 
 ## Test it
 
@@ -79,6 +86,9 @@ worst-fit-decreasing, family A and B never share a CIOC, CIOC 1 baseplate 1 hold
 10% wired spares per controller and IO type are converted from unused pairs, and the last baseplates stay empty
 for future growth. An independent verifier (rules V01 to V16) re-checks the finished allocation, and a readiness
 gate marks the result `ISSUE-READY`, `DRAFT` or `BLOCKED`. Bad data never crashes the tool: it becomes a TQ.
+The gate is strict: any error (an error TQ, a broken rule, or a signal that had to be set aside) makes the result
+`BLOCKED`. The clean signals are still allocated so you can see them, but nothing can be issued until every error
+is fixed and the allocation is run again. `DRAFT` means there are no errors left, only warnings to sign off.
 On the website a result with warnings stays `DRAFT` until an engineer approves every warning under
 **Sign Off The Warnings** on the TQ Board; one marked as a problem keeps it in `DRAFT`. **Re-allocate** re-runs
 the solve, and approvals stay on warnings that come back unchanged. The command line has no review step, so

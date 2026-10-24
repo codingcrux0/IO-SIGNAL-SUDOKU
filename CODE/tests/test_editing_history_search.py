@@ -87,3 +87,10 @@ def test_search_places_point_at_real_views():
     from io_sudoku.ui.state import VIEWS
     assert all(p.view in VIEWS for p in search.PLACES)
     assert len({p.label for p in search.PLACES}) == len(search.PLACES)
+
+
+def test_every_search_section_is_a_real_heading():
+    from pathlib import Path
+    source = "".join(f.read_text() for f in (Path(search.__file__).parent / "views").glob("*.py"))
+    assert all(p.heading in source for p in search.PLACES if p.heading), \
+        [p.heading for p in search.PLACES if p.heading and p.heading not in source]

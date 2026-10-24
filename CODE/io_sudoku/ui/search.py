@@ -1,10 +1,11 @@
-"""The search bar at the top of every page: type, and jump to the closest page, section, tag, cable or question.
+"""The search bar at the top of every page: type, and jump to the closest page or section of the app.
 
 Fast by design: the box is a Streamlit selectbox, so the matching while you type (fuzzy: the letters in
 order, best match first) happens IN THE BROWSER - no server round trip, no rerun per keystroke.  The
 server only acts once you pick something.  If you type a word that matches nothing and press Enter,
-the closest entry is chosen with difflib.  The index of pages and sections is a fixed list; tags,
-cables and questions come from the current result and are cached per result.
+the closest entry is chosen with difflib.  The index is a fixed list of pages and sections only (tags
+and cables are searched where they live: Why Is It Here?, the TQ Board and the Files viewer).
+The same list is the target of the in-sentence links (see nav.py).
 """
 from __future__ import annotations
 
@@ -47,6 +48,7 @@ PLACES: tuple[Place, ...] = (
     _p("Solve", words="solve run allocate allocation kpi summary self-test readiness"),
     _p("Solve", "Wired Spares Per Controller", "spares 10% quota controller compliance"),
     _p("Solve", "Assumptions Used In This Run", "assumptions defaults a01"),
+    _p("Solve", "Self-Test Details", "self test checks passed"),
     _p("Solve", "Stage Timings", "timings speed performance"),
     _p("Cabinet Layout", words="cabinet grid map slots drawings layout"),
     _p("Cabinet Layout", "Slot Map", "grid slots map cioc baseplate channel charm", "cab_tab", "Slot Map", label="Cabinet Layout › Slot Map"),
@@ -56,10 +58,14 @@ PLACES: tuple[Place, ...] = (
     _p("TQ Board", words="tq questions errors warnings board"),
     _p("TQ Board", "Sign Off The Warnings", "warnings errors fix edit approve problem verify sign off"),
     _p("TQ Board", "All Questions", "questions table filter search tqs"),
+    _p("TQ Board", "Copy Questions For An Owner", "email owner copy send"),
     _p("TQ Board", "Answer A Question", "answer override suggested"),
     _p("TQ Board", "Pin A Cable", "pin cable cioc fix position"),
     _p("Health", words="health audit check score human allocation"),
     _p("Health", "Rules Broken", "violations broken rules"),
+    _p("Health", "Wired Spares", "spares quota health", label="Health › Wired Spares"),
+    _p("Health", "Future Space", "future space reserve 10%"),
+    _p("Health", "Every Violation", "violations list all"),
     _p("Health", "Human Allocation vs IO Sudoku", "human vs tool scorecard compare"),
     _p("Parts", words="parts bom bill of materials charms"),
     _p("Parts", "Bill Of Materials", "bom charm terminal baseplate buy"),
@@ -67,38 +73,26 @@ PLACES: tuple[Place, ...] = (
     _p("Parts", "Room To Grow", "headroom growth space"),
     _p("Revision", words="revision rev a rev b changes impact"),
     _p("Revision", "Compare With A New MDB", "rev a rev b new mdb pinned impact redline", "rev_tab", "Compare With A New MDB"),
+    _p("Revision", "Hardware Changes And Spare Conversions", "hardware spare conversions deleted", "rev_tab",
+       "Compare With A New MDB"),
+    _p("Revision", "Question Lifecycle", "tq lifecycle still open new resolved", "rev_tab", "Compare With A New MDB"),
+    _p("Revision", "Downloads For This Revision", "impact report redline download", "rev_tab", "Compare With A New MDB"),
     _p("Revision", "Revision History", "history saved revisions original compare versions", "rev_tab", "Revision History"),
+    _p("Revision", "Saved Revisions", "saved rename delete summary", "rev_tab", "Revision History"),
+    _p("Revision", "Compare Revisions", "compare multiple revisions versions", "rev_tab", "Revision History"),
     _p("Simulator", words="simulator what if rework hours churn 5%"),
+    _p("Simulator", "Minutes Of Rework Per Change", "minutes rework team effort", label="Simulator › Minutes Of Rework"),
     _p("Rules", words="rules locked pack"),
+    _p("Rules", "Locked Rules", "locked fixed cannot change hard rules", label="Rules › Locked Rules"),
     _p("Rules", "Propose A Rule", "propose rule change template"),
     _p("Rules", "Review Queue", "approve reject proposal"),
+    _p("Rules", "Preview And Activate", "preview activate impact new pack version"),
     _p("Rules", "Ask The AI Assistant (optional)", "ai assistant claude"),
     _p("Rules", "Rule Pack And Audit Log", "audit log pack version"),
     _p("Files", words="files downloads export view"),
     _p("Files", "View A File", "open view file viewer"),
     _p("Files", "Download Files", "download zip everything"),
 )
-
-
-@st.cache_data(max_entries=8, show_spinner=False)
-def data_places(result_key: str, _rows: list, _tqs: list) -> tuple[tuple[str, str], ...]:
-    """(label, json action) for every tag, cable and question of a result (cached per result)."""
-    out: list[tuple[str, str]] = []
-    cables: dict[str, str] = {}
-    for r in _rows:
-        status = r.get("Tag Status")
-        cab = str(r.get("Electronic/ Marshalling Cabinet") or "")
-        if status in ("Field", "Cabinet Alarm", "Wired Spare"):
-            tag = str(r.get("Tag Name") or "")
-            if tag and tag != "-":
-                out.append((f"Tag {tag} · {cab}", json.dumps({"kind": "tag", "tag": tag, "cab": cab})))
-        cable = str(r.get("Field Cable No") or "")
-        if status == "Field" and cable and cable != "-" and cable not in cables:
-            cables[cable] = cab
-    out += [(f"Cable {c} · {cab}", json.dumps({"kind": "cable", "cable": c, "cab": cab})) for c, cab in sorted(cables.items())]
-    ids = sorted({t.tq_id for t in _tqs})
-    out += [(f"Question {i}", json.dumps({"kind": "tq", "id": i})) for i in ids]
-    return tuple(out)
 
 
 def closest(text: str, labels: list[str]) -> str | None:
@@ -125,21 +119,27 @@ def closest(text: str, labels: list[str]) -> str | None:
 
 
 # ------------------------------------------------------------------ the widget
-def _data_entries() -> dict[str, str]:
-    s = st.session_state
-    result = s.get("result")
-    if result is None:
-        return {}
-    return dict(data_places(s.get("result_key") or "", result.rows, result.tqs))
+BY_LABEL: dict[str, Place] = {p.label: p for p in PLACES}
 
 
 def render() -> None:
     """The search box at the top of the page (matching runs in the browser while you type)."""
-    labels = [p.label for p in PLACES] + list(_data_entries())
-    st.selectbox("Search the app", labels, index=None, key=KEY, on_change=on_pick, accept_new_options=True,
-                 placeholder="\U0001F50E Search pages, sections, tags, cables or questions…",
-                 label_visibility="collapsed",
-                 help="Type a few letters: the closest matches are listed as you type. Pick one to go there.")
+    st.selectbox("Search the app", list(BY_LABEL), index=None, key=KEY, on_change=on_pick, accept_new_options=True,
+                 placeholder="\U0001F50E Search pages and sections…", label_visibility="collapsed",
+                 help="Type a few letters: the closest pages and sections are listed as you type. Pick one to go there.")
+
+
+def go(place: Place) -> None:
+    """Open a place: its view, its tab, then scroll to its heading (or to the top of the view)."""
+    from io_sudoku.ui import state
+    s = st.session_state
+    if place.view in state.NEEDS_FILE and not s.get("mdb_bytes"):
+        state.flash("info", "Upload a file (or load the sample data) first.")
+        return
+    s["view"] = place.view
+    if place.tab_key:
+        s[place.tab_key] = place.tab
+    s["scroll_to"] = place.heading or "__top__"
 
 
 def on_pick() -> None:
@@ -149,32 +149,14 @@ def on_pick() -> None:
     s[KEY] = None                                         # the box is empty again after every jump
     if not picked:
         return
-    places = {p.label: p for p in PLACES}
-    data = _data_entries()
-    if picked not in places and picked not in data:
-        near = closest(picked, list(places) + list(data))
+    if picked not in BY_LABEL:
+        near = closest(picked, list(BY_LABEL))
         if near is None:
             state.flash("info", f"Nothing in the app matches “{picked}”.")
             return
         state.flash("info", f"Closest match for “{picked}”: {near}")
         picked = near
-    if picked in places:
-        place = places[picked]
-        s["view"] = place.view
-        if place.tab_key:
-            s[place.tab_key] = place.tab
-        s["scroll_to"] = place.heading or None
-        return
-    action = json.loads(data[picked])
-    if action["kind"] in ("tag", "cable"):
-        s.update(view="Cabinet Layout", selected_cabinet=action["cab"], scroll_to="Why Is It Here?")
-        s["cab_tab"] = "Slot Map"
-        if action["kind"] == "tag":
-            s["why_tag"], s["why_cable"] = action["tag"], ""
-        else:
-            s["why_tag"], s["why_cable"] = "(Pick a tag)", action["cable"]
-    elif action["kind"] == "tq":
-        s.update(view="TQ Board", tq_filter="all", tq_page=0, tq_search=action["id"], scroll_to="All Questions")
+    go(BY_LABEL[picked])
 
 
 def scroll_page(heading: str, nonce: int) -> str:

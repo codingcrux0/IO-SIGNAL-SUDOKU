@@ -5,6 +5,7 @@ import streamlit as st
 
 from io_sudoku.core.columnmap import load_aliases, map_columns, missing_mandatory
 from io_sudoku.ui import state, ui_logic
+from io_sudoku.ui.nav import link
 from io_sudoku.ui.views._common import allocate_button
 from io_sudoku.ui.views._viewer import file_viewer
 
@@ -46,12 +47,13 @@ def render() -> None:
         st.info("This file is a finished IO Allocation, not an MDB. It still works: its Field signals and cabinet "
                 "alarms are allocated again by the rules, spares are rebuilt, and rows whose values slipped out of "
                 "their columns are repaired and listed as TQs. To keep the old positions instead, use it as Rev A on "
-                "the Revision view; to check it against the rules, use the Health view.")
+                f"the {link('Revision', 'Revision', 'Compare With A New MDB')} view; to check it against the rules, "
+                f"use the {link('Health', 'Health')} view.")
     allocate_button("solve_upload")
     if s["ui_error"]:
         st.error(s["ui_error"])
     if s["edit_log"]:
-        st.caption(f"Your file has {len(s['edit_log']):,} change(s) made on the Edit File page.")
+        st.caption(f"Your file has {len(s['edit_log']):,} change(s) made on the {link('Edit File', 'Edit File', 'Your Changes')} page.")
     left, right = st.columns([3, 2], vertical_alignment="center")
     right.button("\u270e Edit Your File", key="upload_edit", on_click=state.open_editor, args=(None, "Upload"),
                  help="Change any cell of the uploaded file in the page, without uploading it again.")

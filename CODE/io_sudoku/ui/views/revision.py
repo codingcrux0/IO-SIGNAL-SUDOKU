@@ -10,6 +10,7 @@ from io_sudoku.core.tqlife import diff_tqs
 from io_sudoku.core.workspace import import_workspace
 from io_sudoku.core.overrides import overrides_to_json
 from io_sudoku.ui import history, state, theme, ui_logic
+from io_sudoku.ui.nav import link
 from io_sudoku.ui.views._common import file_card, md_escape, stale_banner
 
 SOURCES = ("Current Result", "Allocation Workbook (.xlsx)", "Workspace (.zip)")
@@ -49,7 +50,8 @@ def _run_compare() -> None:
     s["rev_a_tqs"] = list(s["result"].tqs) if (source == SOURCES[0] and s["result"] is not None) else None
     state.remember(result_b, f"Revision compare (Rev {label})", getattr(up_b, "name", "Rev B MDB"),
                    ui_logic.sha256_hex(up_b.getvalue()), s["rev_key"])
-    state.flash("success", "Revision compared and saved in the Revision History. Scroll down for the changes.")
+    state.flash("success", f"Revision compared and saved in the {link('Revision History', 'Revision', 'Revision History')}. "
+                           "Scroll down for the changes.")
 
 
 COMPARE_NEW, HISTORY = "Compare With A New MDB", "Revision History"

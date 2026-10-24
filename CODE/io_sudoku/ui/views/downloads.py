@@ -7,6 +7,7 @@ from __future__ import annotations
 import streamlit as st
 
 from io_sudoku.ui import ui_logic
+from io_sudoku.ui.nav import link
 from io_sudoku.ui.views._common import download_button, main_ctx, readiness_block, result_or_empty
 from io_sudoku.ui.views._viewer import file_viewer
 
@@ -21,7 +22,7 @@ def render() -> None:
         return
     readiness_block(result)
     st.caption("Open any file right here, or download it. Files from a draft result carry _DRAFT in the name, "
-               "so nobody issues them by mistake. Revision reports are on the Revision view.")
+               f"so nobody issues them by mistake. Revision reports are on the {link('Revision', 'Revision')} view.")
     ctx = main_ctx()
     key = s["result_key"] or ""
     specs = ui_logic.available_downloads(False)

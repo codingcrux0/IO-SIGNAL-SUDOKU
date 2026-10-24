@@ -12,6 +12,7 @@ import pandas as pd
 import streamlit as st
 
 from io_sudoku.ui import editing, state, ui_logic
+from io_sudoku.ui.nav import link
 from io_sudoku.ui.views._common import allocate_button, md_escape
 
 
@@ -23,13 +24,14 @@ def render() -> None:
     s = st.session_state
     st.header("Edit Your File")
     if not s["mdb_bytes"]:
-        st.info("Upload an MDB on the Upload view, or load the sample data, to edit it here.")
+        st.info(f"Upload an MDB on the {link('Upload', 'Upload')} view, or load the sample data, to edit it here.")
         st.button("Try With Sample Data", key="sample_edit", on_click=state.on_sample)
         return
     back = s.get("edit_return")
     top_left, top_right = st.columns([3, 2], vertical_alignment="center")
     top_left.caption(f"Editing **{md_escape(s['mdb_name'] or 'your file')}**. Changes go into this session's copy of the "
-                     "file; download it under Your Changes to keep it. After a change the allocation is DRAFT until "
+                     f"file; download it under {link('Your Changes', 'Edit File', 'Your Changes')} to keep it. "
+                     "After a change the allocation is DRAFT until "
                      "you re-allocate.")
     if back and back != "Edit File":
         top_right.button(f"← Back To {back}", key="edit_back", on_click=state.leave_editor)

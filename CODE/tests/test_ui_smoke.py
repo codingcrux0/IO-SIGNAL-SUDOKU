@@ -277,8 +277,12 @@ def test_drawings_are_shown_in_frames():
     at.session_state["view"] = "Cabinet Layout"
     at.run()
     assert not at.exception, [e.value for e in at.exception]
-    frames = at.get("iframe")
-    assert len(frames) == 2
+    assert len(_drawing_frames(at)) == 2
+
+
+def _drawing_frames(at: AppTest) -> list:
+    """The page's frames, without the invisible sidebar frame that makes the in-sentence links work."""
+    return [f for f in at.get("iframe") if "__iosgNav" not in str(f.proto)]
 
 
 def test_cabinet_layout_keeps_map_drawings_trace_and_pack():
@@ -286,7 +290,7 @@ def test_cabinet_layout_keeps_map_drawings_trace_and_pack():
     at.session_state["view"] = "Cabinet Layout"
     at.run()
     assert not at.exception, [e.value for e in at.exception]
-    assert len(at.get("iframe")) == 2                                        # front and rear drawings
+    assert len(_drawing_frames(at)) == 2                                     # front and rear drawings
     assert any("iosg-grid" in str(h.proto) for h in at.get("html"))          # the slot map
     assert [s.label for s in at.selectbox].count("Cabinet") == 1             # one shared cabinet picker
     assert at.selectbox(key="why_tag") is not None                           # Why Is It Here?
@@ -325,7 +329,7 @@ def test_edit_button_on_an_error_fixes_the_cell_and_comes_back():
     at.button(key="jump_save").click().run()
     assert not at.exception, [e.value for e in at.exception]
     assert at.session_state["view"] == "TQ Board" and len(at.session_state["edit_log"]) == 1
-    assert at.session_state["stale"] and at.session_state["result"].readiness.status == "DRAFT"
+    assert at.session_state["stale"] and at.session_state["result"].readiness.status == "BLOCKED"   # still has errors
     assert not at.button(key="resolve_tq").disabled and at.button(key="resolve_tq").label == "Re-allocate"
     at.button(key="resolve_tq").click().run()
     assert not any(t.tq_id == "PAIR-BEYOND-CABLE" for t in at.session_state["result"].tqs)
@@ -355,15 +359,15 @@ def test_every_run_is_kept_in_the_revision_history():
     assert any(m.label.startswith("Revisions To Compare") for m in at.multiselect)
 
 
-def test_search_bar_jumps_to_a_section_and_a_tag():
+def test_search_bar_lists_only_pages_and_sections_and_jumps():
     at = run("Upload", sample=True)
+    options = at.selectbox(key="global_search").options
+    assert options and not any(o.startswith(("Tag ", "Cable ", "Question ")) for o in options)   # no slots or tags
     at.selectbox(key="global_search").set_value("TQ Board › Sign Off The Warnings").run()
     assert at.session_state["view"] == "TQ Board" and at.session_state["global_search"] is None
     assert not at.exception
-    tag = next(r["Tag Name"] for r in at.session_state["result"].rows if r.get("Tag Status") == "Field")
-    label = next(o for o in at.selectbox(key="global_search").options if o.startswith(f"Tag {tag} "))
-    at.selectbox(key="global_search").set_value(label).run()
-    assert at.session_state["view"] == "Cabinet Layout" and at.session_state["why_tag"] == tag
+    at.selectbox(key="global_search").set_value("Revision › Revision History").run()
+    assert at.session_state["view"] == "Revision" and at.session_state["rev_tab"] == "Revision History"
     assert not at.exception, [e.value for e in at.exception]
 
 

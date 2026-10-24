@@ -113,11 +113,12 @@ def test_header_only_file_is_blocked_not_a_crash():
     assert r.rows == [] and r.readiness.status == "BLOCKED"
 
 
-def test_one_bad_row_makes_a_draft_with_a_tq_and_everything_else_allocated(mdb_path):
+def test_one_bad_row_blocks_with_a_tq_and_everything_else_allocated(mdb_path):
     def change(headers, rows):
         rows[row_of(headers, rows, "320-FT   -20645-A")][col(headers, "I/O Type Name")] = None
     r = solve(mutated(mdb_path, change))
-    assert r.readiness.status == "DRAFT"
+    assert r.readiness.status == "BLOCKED"                                 # strict: an error is never a draft
+    assert any("Fix every error" in x for x in r.readiness.reasons)
     assert [q.tq_id for q in r.quarantined] == ["MISSING-IO-TYPE"]
     assert Counter(row["Tag Status"] for row in r.rows)["Field"] == 176
     assert r.violations == []                              # what was allocated is still perfectly valid

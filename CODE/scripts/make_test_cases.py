@@ -316,21 +316,21 @@ CASES = [
     Case("06_formula_text_safety.csv", "Clean", "Service texts that look like Excel formulas or HTML "
          "(=HYPERLINK, +SUM, @cmd, <b>). They must show as plain text, never run.", "ISSUE-READY", formula_text),
     Case("07_tag_errors.xlsx", "Data errors", "Two rows with no tag, one tag used twice, one more row marked "
-         "DELETED.", "DRAFT", tag_errors),
+         "DELETED.", "BLOCKED", tag_errors),
     Case("08_io_type_errors.xlsx", "Data errors", "Cable 320-CE-0004: one IO type blank, '4-20mA', 'PULSE', and an "
-         "AIR signal whose second IO type is DIR.", "DRAFT", io_type_errors),
+         "AIR signal whose second IO type is DIR.", "BLOCKED", io_type_errors),
     Case("09_cable_and_pair_errors.xlsx", "Data errors", "Cable 320-CE-0040: no cable number, pair '-', two signals "
          "on one pair, pair 30 on a 24-pair cable. 320-CE-0083 has two sizes. 320-CS-0005 has no size.",
-         "DRAFT", cable_pair_errors),
+         "BLOCKED", cable_pair_errors),
     Case("10_segregation_errors.xlsx", "Data errors", "A B signal on an A cable, and the unknown codes 'Z' and "
-         "'SIL3' on cable 320-CE-0087.", "DRAFT", segregation_errors),
+         "'SIL3' on cable 320-CE-0087.", "BLOCKED", segregation_errors),
     Case("11_out_of_scope_signals.xlsx", "Data errors", "Two intrinsically safe signals (IS, Ex i), one MCC signal "
-         "and one IRC signal. The tool does not allocate these.", "DRAFT", out_of_scope),
+         "and one IRC signal. The tool does not allocate these.", "BLOCKED", out_of_scope),
     Case("12_alarm_errors.xlsx", "Data errors", "A cabinet alarm tag ending in -X, and an alarm naming a cabinet "
-         "that does not exist.", "DRAFT", alarm_errors),
-    Case("13_everything_wrong.xlsx", "Data errors", "Many of the errors above in one file.", "DRAFT", everything_wrong),
+         "that does not exist.", "BLOCKED", alarm_errors),
+    Case("13_everything_wrong.xlsx", "Data errors", "Many of the errors above in one file.", "BLOCKED", everything_wrong),
     Case("14_cable_too_large.xlsx", "Capacity", "Cable 320-CE-0083 says 120 pairs; one CIOC holds 96.",
-         "DRAFT", cable_too_large),
+         "BLOCKED", cable_too_large),
     Case("15_new_room_PIB-40.xlsx", "Capacity", "Cables 320-CE-0040 and 320-CS-0008 moved to room PIB-40, which has "
          "no cabinet yet. The tool names one and asks you to confirm.", "ISSUE-READY", new_room),
     Case("16_big_project_1600_signals.xlsx", "Capacity", "1,600 signals on 80 cables in one room: more than one "
@@ -373,9 +373,11 @@ The table below was written by `scripts/make_test_cases.py` after solving every 
 so it shows what the tool really does.
 
 - **ISSUE-READY**: clean enough to issue, and every warning has been approved.
-- **DRAFT**: allocated, but some signals were held back, an error needs an answer, or a warning is not approved yet.
+- **DRAFT**: no errors, but a warning is not approved yet.
   Approve warnings under **Sign Off The Warnings** on the TQ Board.
-- **BLOCKED**: nothing could be allocated (the file itself is the problem).
+- **BLOCKED**: nothing could be allocated (the file itself is the problem), or there is at least one error
+  (a signal was held back, or a rule would be broken). The clean signals are still allocated so you can look
+  at them, but the result cannot be issued until every error is fixed and you re-allocate.
 
 Rebuild the files with `python scripts/make_test_cases.py`.
 

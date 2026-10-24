@@ -100,7 +100,7 @@ def test_unrepairable_row_is_set_aside_with_an_error(allocation):
     assert len(misaligned) == 1 and misaligned[0].severity == "error"
     assert str(i + 1) in misaligned[0].ref
     assert not any(r.get("Tag Name") == rows[i][header.index("Tag Name")] for r in result.rows)
-    assert result.readiness.status == "DRAFT"
+    assert result.readiness.status == "BLOCKED" and result.rows        # an error blocks, the rest is still allocated
 
 
 def test_realign_never_drops_a_value():

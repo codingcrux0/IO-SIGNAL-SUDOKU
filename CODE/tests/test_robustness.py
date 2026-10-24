@@ -123,7 +123,7 @@ def test_bad_data_becomes_a_tq_and_a_valid_result(mdb_path, change, tq):
     assert any(t.tq_id == tq for t in r.tqs), (tq, sorted({t.tq_id for t in r.tqs}))
     check_sane(r)
     if tq != "CABLE-SIZE-INFERRED":
-        assert r.readiness.status == "DRAFT" and r.quarantined
+        assert r.readiness.status == "BLOCKED" and r.quarantined and r.rows    # blocked, the rest still allocated
     else:
         assert r.readiness.status == "ISSUE-READY" and r.quarantined == []    # inferred 24 from highest pair
 

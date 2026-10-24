@@ -7,6 +7,7 @@ import streamlit as st
 
 from io_sudoku.core.preflight import PreflightReport, preflight
 from io_sudoku.ui import ui_logic
+from io_sudoku.ui.nav import link
 from io_sudoku.ui.state import on_sample
 from io_sudoku.ui.views._common import stale_banner, tq_table
 
@@ -22,7 +23,7 @@ def render() -> None:
     s = st.session_state
     st.header("Preflight Check")
     if not s["mdb_bytes"]:
-        st.info("Upload an MDB on the Upload view, or load the sample data, to see how clean it is.")
+        st.info(f"Upload an MDB on the {link('Upload', 'Upload')} view, or load the sample data, to see how clean it is.")
         st.button("Try With Sample Data", key="sample_preflight", on_click=on_sample)
         return
     stale_banner("preflight")
@@ -43,7 +44,7 @@ def render() -> None:
                        "Filled": f"{c.filled:,} of {c.total:,}", "Filled (%)": c.pct} for c in report.columns],
                      hide_index=True, width="stretch")
     else:
-        st.info("No columns could be matched. Check the file on the Upload view.")
+        st.info(f"No columns could be matched. Check the file on the {link('Upload', 'Upload', 'Check How Your Columns Were Understood')} view.")
     st.subheader("Needs A Human")
     if report.issues:
         tq_table(ui_logic.by_severity(report.issues))

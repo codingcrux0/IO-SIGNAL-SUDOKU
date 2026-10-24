@@ -17,6 +17,7 @@ from io_sudoku.core.overrides import overrides_to_json
 from io_sudoku.core.rulepack import default_pack, pack_hash
 from io_sudoku.samples import sample_mdb_bytes
 from io_sudoku.ui import editing, history, ui_logic
+from io_sudoku.ui.nav import link
 
 VIEWS = ("Upload", "Edit File", "Preflight", "Solve", "Cabinet Layout", "TQ Board", "Health", "Parts", "Revision", "Simulator", "Rules",
          "Files")
@@ -124,7 +125,8 @@ def on_workspace_upload() -> None:
     s.update(pack=ws.pack, overrides=list(ws.overrides), pins=dict(ws.pins), rev_label=ws.rev_label, rev_a_rows=ws.rows)
     mark_stale()
     flash("success", f"Workspace loaded: {len(ws.rows):,} rows, {len(ws.overrides):,} answers, {len(ws.pins):,} pins. "
-                     "Upload the MDB again, or use the rows as Rev A on the Revision view.")
+                     f"Upload the MDB again, or use the rows as Rev A on the "
+                     f"{link('Revision', 'Revision', 'Compare With A New MDB')} view.")
 
 
 def mark_stale() -> None:
@@ -173,8 +175,9 @@ def refresh_readiness() -> None:
     if result is None:
         return
     verdict = readiness_mod.assess(result, s["signoffs"])
-    if s.get("stale") and verdict.status != "BLOCKED":
-        verdict = readiness_mod.Readiness("DRAFT", (STALE_REASON,) + verdict.reasons)
+    if s.get("stale"):                            # out of date: never better than DRAFT (BLOCKED stays BLOCKED)
+        verdict = readiness_mod.Readiness("BLOCKED" if verdict.status == "BLOCKED" else "DRAFT",
+                                          (STALE_REASON,) + verdict.reasons)
     result.readiness = verdict
     s["result_key"] = ui_logic.sha256_hex((s["solve_key"] or "") + "|" + json.dumps(s["signoffs"], sort_keys=True)
                                           + ("|stale" if s.get("stale") else ""))

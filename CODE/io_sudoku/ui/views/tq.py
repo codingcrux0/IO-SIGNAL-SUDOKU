@@ -73,7 +73,7 @@ ROWS_PER_PAGE = 60
 
 def _box(count: int):
     """A scroll box for long lists, so the page itself does not have to be scrolled."""
-    return st.container(height=420) if count > 4 else st.container()
+    return st.container(height=420, key="signoff_box") if count > 4 else st.container(key="signoff_box")
 
 
 def _signoff(result) -> None:
@@ -107,7 +107,8 @@ def _signoff(result) -> None:
             left, mid, right = st.columns([4, 2, 1], vertical_alignment="center")
             mark = "\u25cf" if severity == "error" else "\u25b2"
             left.markdown(f"{mark} **{md_escape(kind)}** \u00b7 {md_escape(ref) or '-'}  \n"
-                          f"<small>{md_escape(text)}</small>", unsafe_allow_html=True)
+                          f"<small>{md_escape(ui_logic.short_text(text))}</small>", unsafe_allow_html=True,
+                          help=_details(result, kind, ref, text))
             if severity == "error":
                 mid.markdown('<span style="color:#ff7b72;font-weight:700">Error: fix it</span>', unsafe_allow_html=True)
                 right.button("\u270e Edit", key=f"edit_err_{page}_{i}", on_click=state.edit_for_tq,
@@ -123,6 +124,11 @@ def _signoff(result) -> None:
         c1, c2 = st.columns([3, 2], vertical_alignment="center")
         sure = c1.checkbox("I have checked every warning above", key="approve_all_ok")
         c2.button("Approve All Warnings", key="approve_all", disabled=not sure, on_click=state.approve_all_warnings)
+
+
+def _details(result, kind: str, ref: str, text: str) -> str:
+    """What the (i) next to a question shows on hover: the whole text, the suggested fix and the owner."""
+    return "\n\n".join(f"**{label}:** {md_escape(value)}" for label, value in ui_logic.question_details(result, kind, ref, text))
 
 
 def _email_text(tqs) -> None:

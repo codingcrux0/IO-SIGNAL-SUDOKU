@@ -7,6 +7,7 @@ import streamlit as st
 
 from io_sudoku.core import readiness as readiness_mod
 from io_sudoku.ui import state, theme, ui_logic
+from io_sudoku.ui.nav import link
 
 
 def md_escape(text: str) -> str:
@@ -49,7 +50,7 @@ def result_or_empty(what: str, key: str):
     """The current SolveResult, or None after showing the empty state (with the sample button)."""
     result = st.session_state["result"]
     if result is None:
-        st.info(f"No result yet. Upload an MDB on the Upload view, or load the sample data to see {what}.")
+        st.info(f"No result yet. Upload an MDB on the {link('Upload', 'Upload')} view, or load the sample data to see {what}.")
         st.button("Try With Sample Data", key=f"sample_{key}", on_click=state.on_sample)
         return None
     stale_banner(key)
@@ -87,8 +88,10 @@ def readiness_block(result) -> None:
         questions = ui_logic.blocking_questions(result)
         if questions:
             with st.expander("What needs fixing first", expanded=status == "BLOCKED"):
-                st.markdown("\n".join(f"- {md_escape(q)}" for q in questions))
-                st.caption("Every question, with a suggested fix, is on the TQ Board.")
+                st.markdown("\n".join(f"- {md_escape(ui_logic.short_text(q))}" for q in questions))
+                st.caption(f"Every question, with a suggested fix, is on the {link('TQ Board', 'TQ Board', 'All Questions')}. "
+                           f"To fix an error, press its Edit button under "
+                           f"{link('Sign Off The Warnings', 'TQ Board', 'Sign Off The Warnings')}.")
         signed = readiness_mod.signoff_counts(result, st.session_state.get("signoffs") or {})
         if signed["waiting"] or signed[readiness_mod.PROBLEM]:
             st.button("Sign Off Warnings On The TQ Board", key=f"signoff_go_{st.session_state.get('view', '')}",

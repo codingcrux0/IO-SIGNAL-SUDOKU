@@ -1,8 +1,10 @@
 """The issue-readiness gate: how far can a reviewer trust this result?
 
   ISSUE-READY  no error, nothing set aside, no rule violation - safe to hand to a reviewer
-  DRAFT        usable, but there are open items (TQs, quarantined signals, violations)
-  BLOCKED      nothing could be allocated (unreadable input or zero rows)
+  DRAFT        no error, but there are open items (warnings to sign off, special TQs)
+  BLOCKED      nothing could be allocated (unreadable input or zero rows), OR something must be fixed
+               first: an error TQ, a broken rule, or a signal that was set aside.  Strict on purpose -
+               a result with an error is never offered as a draft.
 
 Warning sign-off: when `signoffs` is given (the website always gives it), every warning - a warning
 TQ or a warning from the verifier - must be approved by an engineer before the result is ISSUE-READY.
@@ -85,6 +87,9 @@ def assess(result: Any, signoffs: dict[str, str] | None = None) -> Readiness:
         reasons.append(f"{len(error_violations)} rule violations ({kinds})")
     if quarantined:
         reasons.append(f"{len(quarantined)} signals were set aside")
+    blocked = bool(reasons)                       # every error must be fixed: no draft is offered with one
+    if blocked:
+        reasons.append("Fix every error, then re-allocate.")
     for special in sorted({i for i in ids if i in DRAFT_TQS}):
         if not any(special in r for r in reasons):
             reasons.append(f"{special} was raised")
@@ -95,7 +100,7 @@ def assess(result: Any, signoffs: dict[str, str] | None = None) -> Readiness:
         if signed["waiting"]:
             reasons.append(f"{signed['waiting']} warnings are waiting for sign-off")
     if reasons:
-        return Readiness("DRAFT", tuple(reasons))
+        return Readiness("BLOCKED" if blocked else "DRAFT", tuple(reasons))
     if signed and signed["total"]:
         return Readiness("ISSUE-READY", (f"{signed['total']} warnings were signed off",))
 

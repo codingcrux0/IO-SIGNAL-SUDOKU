@@ -72,6 +72,17 @@ padding:.6rem .9rem;min-width:0}
 [data-testid="stSidebar"]{border-right:1px solid var(--line)}
 iframe[data-testid=stIFrame]{background:#fff;border-radius:8px;color-scheme:light}
 [data-testid=stSidebar] iframe[data-testid=stIFrame]{opacity:0;pointer-events:none}
+[data-testid=stSidebar] [data-testid=stElementContainer]:has(iframe[data-testid=stIFrame]){position:absolute;width:1px;
+height:1px;overflow:hidden}
+.st-key-iosg_nav{display:none!important}
+[data-testid=stTooltipContent]{font-size:.78rem;line-height:1.45;max-width:440px}
+[data-testid=stTooltipContent] p{margin:0 0 .3rem}
+.st-key-signoff_box button[aria-label=Help] svg{display:none}
+.st-key-signoff_box button[aria-label=Help]::after{content:"i";display:inline-flex;align-items:center;
+justify-content:center;width:15px;height:15px;border:1.5px solid currentColor;border-radius:50%;
+font:italic 700 10px/1 Georgia,serif;color:var(--muted)}
+a[href^="#go-"]{color:var(--accent)!important;text-decoration:underline dotted;text-underline-offset:3px;cursor:pointer}
+a[href^="#go-"]:hover{text-decoration-style:solid}
 .iosg-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .iosg-skip{position:absolute;left:-999px;top:0;background:var(--accent);color:#0d1117;padding:.4rem .8rem;border-radius:0 0 8px 0;z-index:9999}
 .iosg-skip:focus{left:0}

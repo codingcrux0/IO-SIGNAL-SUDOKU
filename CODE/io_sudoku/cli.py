@@ -95,9 +95,11 @@ def _solve(args: argparse.Namespace) -> int:
     print(f"{status}: {len(result.rows)} rows, {result.kpis.get('field', 0)} field signals, "
           f"{len(result.tqs)} TQs, {len(result.quarantined)} set aside, solved in {seconds:.1f} s")
     print("Written to " + str(Path(args.out)) + ": " + ", ".join(written))
-    if status == "BLOCKED":
+    if not result.rows:
         print("Nothing could be allocated: see TQ_Register.xlsx for why.")
         return 1
+    if status == "BLOCKED":
+        print("Every error must be fixed before this allocation can be issued: see TQ_Register.xlsx.")
     return 0
 
 

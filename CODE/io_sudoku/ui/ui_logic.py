@@ -482,3 +482,39 @@ def clip(text: Any, limit: int = 60) -> str:
     s = str(text)
     return s if len(s) <= limit else s[: limit - 1] + "…"
 
+
+SHORT_TEXT = 110          # characters of a question shown in a list; the rest is behind the (i) hover
+
+
+def short_text(text: Any, limit: int = SHORT_TEXT) -> str:
+    """One short line for a long question: its start (up to a long list after ':') plus its closing question.
+
+    'Cabinets for room PIB-12 were inferred from names: P12-DCM-…(500 characters)…. Are they correct?'
+    -> 'Cabinets for room PIB-12 were inferred from names … Are they correct?'  Nothing is reworded; text is
+    only left out, and the whole text stays one hover away."""
+    s = str(text).strip().replace("\n", " ")           # inner spaces kept: they are part of some tag names
+    if len(s) <= limit:
+        return s
+    body, tail = s, ""
+    cut = max(s.rfind(". ", 0, len(s) - 1), s.rfind("? ", 0, len(s) - 1))
+    if s.endswith("?") and cut > 0 and len(s) - cut <= 60:
+        body, tail = s[:cut + 1].rstrip(" ."), s[cut + 2:]
+    room = limit - (len(tail) + 3 if tail else 2)
+    colon = body.find(": ")
+    if 0 < colon <= room:
+        head = body[:colon]
+    elif len(body) <= room:
+        head = body
+    else:
+        head = body[:room].rsplit(" ", 1)[0].rstrip(",;:(")
+    return f"{head} … {tail}" if tail else (head if head == body else head + " …")
+
+
+def question_details(result: SolveResult, kind: str, ref: str, text: str) -> list[tuple[str, str]]:
+    """(label, value) lines behind the (i) of one error or warning: the full text, the fix and the owner."""
+    lines = [("Full text", str(text).strip())]
+    tq = next((t for t in result.tqs if t.tq_id == kind and str(t.ref) == str(ref)), None)
+    if tq is not None:
+        lines += [("Suggested fix", tq.resolution), ("Owner", tq.owner), ("Category", tq.category)]
+    return [(k, str(v)) for k, v in lines if v]
+
