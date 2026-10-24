@@ -212,6 +212,11 @@ def _pack_files() -> None:
                        file_name=f"{s['pack'].name}_v{s['pack'].version}.json", mime="application/json", key="dl_pack")
     c2.download_button("Download Audit Log (.json)", data=json.dumps(rc.audit_entries(s["proposals"]), indent=2),
                        file_name="Rule_Audit_Log.json", mime="application/json", key="dl_audit")
+    v1, v2 = st.columns(2)
+    if v1.toggle("View Rule Pack Here", key="rules_view_pack"):
+        st.json(pack_to_dict(s["pack"]), expanded=2)
+    if v2.toggle("View Audit Log Here", key="rules_view_audit"):
+        st.json(rc.audit_entries(s["proposals"]), expanded=1)
     st.file_uploader("Load A Rule Pack (.json)", type=["json"], key="pack_uploader", on_change=_import_pack)
     entries = rc.audit_entries(s["proposals"])
     if entries:

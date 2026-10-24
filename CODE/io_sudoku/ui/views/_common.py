@@ -42,6 +42,21 @@ def download_button(spec: ui_logic.DownloadSpec, ctx: dict[str, Any], result_key
     st.download_button(spec.label, data=data, file_name=name, mime=mime, key=f"{key_prefix}_{spec.key}")
 
 
+def file_card(spec: ui_logic.DownloadSpec, ctx: dict[str, Any], result_key: str, key_prefix: str = "dl") -> None:
+    """A download button with a "View Here" switch that opens the same file in the page."""
+    from io_sudoku.ui.views._viewer import file_viewer
+
+    try:
+        data, name, mime = ui_logic.cached_download(result_key, spec.key, ctx)
+    except Exception:  # noqa: BLE001 - one broken report must not hide the others
+        st.caption(f"{spec.label} is not available right now.")
+        return
+    left, right = st.columns([3, 2], vertical_alignment="center")
+    left.download_button(spec.label, data=data, file_name=name, mime=mime, key=f"{key_prefix}_{spec.key}", on_click="ignore")
+    if right.toggle("View Here", key=f"{key_prefix}_view_{spec.key}", help=f"Open {spec.title} in the page without downloading it."):
+        file_viewer(data, name, f"{key_prefix}_v_{spec.key}_{result_key[:8]}", trusted_html=True)
+
+
 def main_ctx() -> dict[str, Any]:
     s = st.session_state
     return {"result": s["result"], "mdb_bytes": s["mdb_bytes"], "pack": s["pack"], "overrides": s["overrides"],

@@ -5,6 +5,7 @@ import streamlit as st
 
 from io_sudoku.core.columnmap import load_aliases, map_columns, missing_mandatory
 from io_sudoku.ui import state, ui_logic
+from io_sudoku.ui.views._viewer import file_viewer
 
 AUTO = "(Choose automatically)"
 
@@ -43,6 +44,8 @@ def render() -> None:
     st.button("Run Allocation", key="solve_upload", on_click=state.on_solve, type="primary")
     if s["ui_error"]:
         st.error(s["ui_error"])
+    if st.toggle("Preview Your File", key="upload_view_input", help="See the rows and columns exactly as they were uploaded."):
+        file_viewer(s["mdb_bytes"], s["mdb_name"] or "input.xlsx", f"upload_input_{(s['mdb_sha'] or '')[:8]}")
     _column_mapping()
 
 

@@ -17,7 +17,8 @@ from io_sudoku.samples import sample_mdb_bytes
 from io_sudoku.ui import ui_logic
 
 VIEWS = ("Upload", "Preflight", "Solve", "Grid", "TQ Board", "Health", "Drawings", "Parts", "Revision", "Simulator", "Rules",
-         "Downloads")
+         "Files")
+OLD_VIEW_NAMES = {"Downloads": "Files"}      # old links keep working
 SAMPLE_NAME = "Sample_MDB.xlsx"
 
 KEYS = {"mdb_bytes": None, "mdb_name": None, "mdb_sha": None, "template_bytes": None, "pack": None, "overrides": [],
@@ -25,10 +26,10 @@ KEYS = {"mdb_bytes": None, "mdb_name": None, "mdb_sha": None, "template_bytes": 
         "last_good": None, "rev_a_rows": None, "rev_b_bytes": None, "impact": None, "proposals": [], "lite": False,
         "selected_cabinet": None, "tq_page": 0, "tq_filter": "all", "ui_error": None, "view": VIEWS[0],
         "confirm_reset": False, "health": None, "rev_b_result": None, "flash": None, "rev_key": "", "sim": None,
-        "rule_preview": None}
+        "rule_preview": None, "files_pick": None}
 
 # Widget-bound keys must survive a view change (Streamlit forgets a widget's value when the widget is not drawn).
-_PERSIST = ("lite", "rev_label", "tq_filter", "tq_page", "selected_cabinet")
+_PERSIST = ("lite", "rev_label", "tq_filter", "tq_page", "selected_cabinet", "files_pick")
 
 
 def init_state() -> None:
@@ -44,6 +45,7 @@ def init_state() -> None:
     if not s.get("_url_read"):
         s["_url_read"] = True
         view = st.query_params.get("view")
+        view = OLD_VIEW_NAMES.get(view, view)
         if view in VIEWS:
             s["view"] = view
         cab = st.query_params.get("cab")

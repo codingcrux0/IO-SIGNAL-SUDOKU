@@ -212,6 +212,11 @@ class DownloadSpec:
     label: str
     needs: str = ""          # '' | 'impact' (only offered when a revision comparison exists)
 
+    @property
+    def title(self) -> str:
+        """'Download TQ Register (.xlsx)' -> 'TQ Register' (used by the file viewer)."""
+        return self.label.removeprefix("Download ").split(" (")[0]
+
 
 DOWNLOADS: tuple[DownloadSpec, ...] = (
     DownloadSpec("allocation", "Download Allocation"),
@@ -280,6 +285,28 @@ def build_download(key: str, ctx: dict[str, Any]) -> tuple[bytes, str, str]:
 @st.cache_data(max_entries=32, show_spinner=False)
 def cached_download(result_key: str, key: str, _ctx: dict[str, Any]) -> tuple[bytes, str, str]:
     return build_download(key, _ctx)
+
+
+def bundle_all_name(ctx: dict[str, Any]) -> str:
+    status, _ = readiness_text(ctx["result"])
+    return f"IO_Sudoku_Files_Rev{ctx.get('rev_label') or '00'}{readiness_mod.suffix(status)}.zip"
+
+
+def bundle_all(result_key: str, ctx: dict[str, Any]) -> bytes:
+    """Every available file of one result in a single ZIP (built on click, from the cached files)."""
+    import io
+    import zipfile
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for spec in available_downloads(ctx.get("impact") is not None):
+            try:
+                data, name, _mime = cached_download(result_key, spec.key, ctx)
+            except Exception:  # noqa: BLE001 - one broken report must not block the others
+                continue
+            if data:
+                zf.writestr(zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0)), data)
+    return buf.getvalue()
 
 
 def overrides_summary(overrides: list[Override]) -> list[dict[str, Any]]:

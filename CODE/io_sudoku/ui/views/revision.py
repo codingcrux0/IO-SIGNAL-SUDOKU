@@ -9,7 +9,7 @@ from io_sudoku.core.tqlife import diff_tqs
 from io_sudoku.core.workspace import import_workspace
 from io_sudoku.core.overrides import overrides_to_json
 from io_sudoku.ui import state, ui_logic
-from io_sudoku.ui.views._common import download_button, stale_banner
+from io_sudoku.ui.views._common import file_card, stale_banner
 
 SOURCES = ("Current Result", "Allocation Workbook (.xlsx)", "Workspace (.zip)")
 
@@ -100,4 +100,4 @@ def render() -> None:
            "rev_a_rows": s["rev_a_rows"]}
     st.subheader("Downloads For This Revision")
     for key in ("impact", "redline", "allocation"):
-        download_button(next(d for d in ui_logic.DOWNLOADS if d.key == key), ctx, s["rev_key"], "rev")
+        file_card(next(d for d in ui_logic.DOWNLOADS if d.key == key), ctx, s["rev_key"], "rev")

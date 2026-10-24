@@ -5,7 +5,7 @@ import streamlit as st
 
 from io_sudoku.core.elevation import cabinet_svg
 from io_sudoku.ui import state, theme, ui_logic
-from io_sudoku.ui.views._common import cabinet_picker, download_button, main_ctx, result_or_empty
+from io_sudoku.ui.views._common import cabinet_picker, file_card, main_ctx, result_or_empty
 
 
 def render() -> None:
@@ -25,4 +25,4 @@ def render() -> None:
     with rear:
         st.subheader("Rear (CIOC 3–4)")
         st.html(cabinet_svg(result.rows, cabinet, "R"))
-    download_button(next(d for d in ui_logic.DOWNLOADS if d.key == "drawings"), main_ctx(), st.session_state["result_key"] or "", "draw")
+    file_card(next(d for d in ui_logic.DOWNLOADS if d.key == "drawings"), main_ctx(), st.session_state["result_key"] or "", "draw")

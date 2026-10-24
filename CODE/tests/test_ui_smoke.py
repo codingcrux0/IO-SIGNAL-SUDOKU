@@ -101,3 +101,67 @@ def test_reset_needs_confirmation():
     at.checkbox(key="confirm_reset").check().run()
     next(b for b in at.button if b.label == "Reset Session").click().run()
     assert at.session_state["result"] is None
+
+
+def test_files_view_opens_files_in_the_page():
+    at = run("Files", sample=True)
+    at.session_state["view"] = "Files"
+    at.run()
+    assert not at.exception
+    assert any(d.value.shape[0] == len(at.session_state["result"].rows) for d in at.dataframe)
+    for pick in ("tq", "summary", "manifest", "workspace", "input"):
+        at.selectbox(key="files_pick").set_value(pick).run()
+        assert not at.exception, (pick, [e.value for e in at.exception])
+        assert not at.error, pick
+
+
+def test_viewer_search_narrows_rows():
+    at = run("Files", sample=True)
+    at.session_state["view"] = "Files"
+    at.run()
+    search = next(t for t in at.text_input if t.label == "Search")
+    search.set_value("zzz-no-such-tag").run()
+    assert not at.exception and any("No row matches" in i.value for i in at.info)
+
+
+def test_view_here_toggle_on_parts_and_upload():
+    at = run("Parts", sample=True)
+    at.session_state["view"] = "Parts"
+    at.run()
+    at.toggle(key="parts_view_parts").set_value(True).run()
+    assert not at.exception and any(r.label == "Sheet" for r in at.radio)
+    at.session_state["view"] = "Upload"
+    at.run()
+    at.toggle(key="upload_view_input").set_value(True).run()
+    assert not at.exception
+
+
+def test_old_downloads_link_opens_files():
+    at = AppTest.from_file(APP, default_timeout=60)
+    at.query_params["view"] = "Downloads"
+    at.run()
+    assert at.session_state["view"] == "Files" and not at.exception
+
+
+def test_viewer_renders_redline_colours():
+    def app():
+        from io_sudoku.core.revision import solve_incremental
+        from io_sudoku.core.rulepack import default_pack
+        from io_sudoku.core.simulate import make_revision
+        from io_sudoku.samples import sample_mdb_bytes
+        from io_sudoku.ui import ui_logic
+        from io_sudoku.ui.views._viewer import file_viewer
+        mdb = sample_mdb_bytes()
+        a = ui_logic.solve_inputs(mdb, "", "[]", "{}", "{}", "00")
+        b, report = solve_incremental(make_revision(mdb, 10, 3), a.rows, ui_logic.config_for_pack(default_pack()), "B")
+        ctx = {"result": b, "mdb_bytes": mdb, "pack": default_pack(), "overrides": [], "pins": {}, "rev_label": "B",
+               "template_bytes": None, "impact": report, "rev_a_rows": a.rows}
+        data, name, _ = ui_logic.build_download("redline", ctx)
+        file_viewer(data, name, "red")
+
+    at = AppTest.from_function(app, default_timeout=60)
+    at.run()
+    assert not at.exception, [e.value for e in at.exception]
+    assert any(r.label == "Highlighted Changes" for r in at.radio)
+    at.radio(key="red_mark").set_value("Moved").run()
+    assert not at.exception

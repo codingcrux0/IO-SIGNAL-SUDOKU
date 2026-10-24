@@ -20,6 +20,11 @@ python3 -m venv .venv
 
 Open the address Streamlit prints, press **Try With Sample Data**, and explore the views in the sidebar.
 
+Every output can be opened in the browser before you download it: the **Files** view (and a **View Here** switch on
+Parts, Drawings, Revision and Health) shows workbooks as searchable tables, pages as pages, JSON as a tree and ZIP
+bundles file by file. The viewer is read-only; **Download This View (.csv)** exports exactly the rows you filtered, and
+**Download Everything (.zip)** gets every file at once.
+
 ## Command line (no browser)
 
 ```bash

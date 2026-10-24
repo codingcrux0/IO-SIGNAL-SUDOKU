@@ -50,6 +50,7 @@ border-color:var(--c,#888)}
 .iosg-legend i{display:inline-block;width:18px;height:14px;border-radius:3px}
 .iosg-trunc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 [data-testid="stSidebar"]{border-right:1px solid var(--line)}
+iframe[data-testid=stIFrame]{background:#fff;border-radius:8px;color-scheme:light}
 .iosg-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .iosg-skip{position:absolute;left:-999px;top:0;background:var(--accent);color:#0d1117;padding:.4rem .8rem;border-radius:0 0 8px 0;z-index:9999}
 .iosg-skip:focus{left:0}

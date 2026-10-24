@@ -15,4 +15,4 @@ Open the app (`streamlit run app.py`). Keep **Try With Sample Data** as the offl
    Then **Revision**: Rev A = current result, upload a Rev B MDB, *Compare Revisions*, show the four tables and the redline download.
 8. **Governed rules and AI (35 s).** **Rules**: propose a rule, show that the author cannot approve it, a second person approves with the passcode,
    *Preview Impact*, *Activate*. The AI box drafts only a *pending* proposal. "AI never touches the allocation."
-9. **Trust (15 s).** **Downloads**: the run manifest carries the SHA-256 fingerprint; re-running gives the same hash. Parts list and headroom on **Parts**.
+9. **Trust (15 s).** **Files**: open the run manifest in the page; it carries the SHA-256 fingerprint; re-running gives the same hash. Parts list and headroom on **Parts**.

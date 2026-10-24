@@ -12,7 +12,7 @@ from io_sudoku.ui.views import (downloads, drawings, grid, health, parts, prefli
 
 VIEW_MODULES = {"Upload": upload, "Preflight": preflight, "Solve": solve, "Grid": grid, "TQ Board": tq, "Health": health,
                 "Drawings": drawings, "Parts": parts, "Revision": revision, "Simulator": simulator, "Rules": rules,
-                "Downloads": downloads}
+                "Files": downloads}
 
 
 def main() -> None:

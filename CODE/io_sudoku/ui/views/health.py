@@ -5,6 +5,7 @@ import streamlit as st
 
 from io_sudoku.core.healthcheck import audit_allocation, health_report_bytes, scorecard
 from io_sudoku.ui import ui_logic
+from io_sudoku.ui.views._viewer import file_viewer
 
 
 def _run_audit() -> None:
@@ -57,6 +58,16 @@ def render() -> None:
         st.dataframe(card, hide_index=True, width="stretch")
     elif s["result"] is None:
         st.caption("Run an allocation too, and a side-by-side scorecard appears here.")
-    st.download_button("Download Health Report (.xlsx)", data=health_report_bytes(report, card), key="dl_health",
-                       file_name="Allocation_Health_Report.xlsx",
-                       mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    data = health_report_bytes(report, card)
+    left, right = st.columns([3, 2], vertical_alignment="center")
+    left.download_button("Download Health Report (.xlsx)", data=data, key="dl_health", on_click="ignore",
+                         file_name="Allocation_Health_Report.xlsx",
+                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    if right.toggle("View Here", key="health_view_report", help="Open the health report in the page."):
+        file_viewer(data, "Allocation_Health_Report.xlsx", "health_report")
+    if st.toggle(f"View The Uploaded Workbook ({ui_logic.clip(health['name'], 40)})", key="health_view_upload"):
+        uploaded = s.get("audit_uploader")
+        if uploaded is not None:
+            file_viewer(uploaded.getvalue(), uploaded.name, "health_upload")
+        else:
+            st.info("Choose the workbook again to view it.")
