@@ -13,6 +13,24 @@ def _selftest() -> SelfTestReport:
     return run_selftest()
 
 
+def _kpi_boxes(result) -> None:
+    """The summary boxes.  Each one is clickable and leads to the part of the tool it counts."""
+    cards = ui_logic.kpi_cards(result)
+    for column, (label, value) in zip(st.columns(len(cards)), cards):
+        kind, target = ui_logic.KPI_LINKS.get(label, ("", ""))
+        slug = "".join(ch for ch in label.lower() if ch.isalnum())
+        with column:
+            if kind == "anchor":
+                st.markdown(theme.kpi_card_html(label, value, "Show the table", f"#{target}"), unsafe_allow_html=True)
+            elif kind == "view":
+                with st.container(key=f"kpicard_{slug}"):
+                    st.markdown(theme.kpi_card_html(label, value, f"Open {target}"), unsafe_allow_html=True)
+                    st.button(f"{label}: {value}. Open {target}", key=f"kpigo_{slug}", on_click=state.go_to,
+                              args=(target,))
+            else:
+                st.markdown(theme.kpi_html([(label, value)]), unsafe_allow_html=True)
+
+
 def render() -> None:
     s = st.session_state
     st.header("Run Allocation")
@@ -36,11 +54,11 @@ def render() -> None:
         return
     stale_banner("solve")
     readiness_block(result)
-    st.markdown(theme.kpi_html(ui_logic.kpi_cards(result)), unsafe_allow_html=True)
+    _kpi_boxes(result)
     if result.quarantined:
         st.warning(f"{len(result.quarantined):,} signals were set aside because they could not be placed safely. "
                    "Open the TQ Board to answer them.")
-    st.subheader("Wired Spares Per Controller")
+    st.subheader("Wired Spares Per Controller", anchor=ui_logic.SPARES_ANCHOR)
     st.dataframe([{"Controller": l.controller, "IO Type": l.io_type, "Field": l.field, "Required": l.quota,
                    "Wired": l.wired, "Short": l.shortfall} for l in result.spare_lines], hide_index=True, width="stretch")
     with st.expander("Assumptions Used In This Run"):

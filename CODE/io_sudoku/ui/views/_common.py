@@ -5,6 +5,7 @@ from typing import Any
 
 import streamlit as st
 
+from io_sudoku.core import readiness as readiness_mod
 from io_sudoku.ui import state, theme, ui_logic
 
 
@@ -13,24 +14,35 @@ def md_escape(text: str) -> str:
     return "".join("\\" + ch if ch in "\\`*_[]<>#|~" else ch for ch in str(text))
 
 
-def tq_table(tqs: list[Any]) -> None:
-    """The questions as a table, each row coloured by severity: red error, amber warning, blue info."""
+SIGNOFF_COLOURS = {"\u2713": "#3fb950", "\u2717": "#ff7b72"}     # Sign-Off cell: green approved, red problem
+
+
+def tq_table(tqs: list[Any], signoffs: dict[str, str] | None = None) -> None:
+    """The questions as a table, each row coloured by severity: red error, amber warning, blue info.
+    With `signoffs`, a Sign-Off column says whether each warning is approved, a problem or waiting."""
     import pandas as pd
 
-    frame = pd.DataFrame(ui_logic.tq_rows(tqs))
+    frame = pd.DataFrame(ui_logic.tq_rows(tqs, signoffs))
     if frame.empty:
         return
     colours = [ui_logic.SEVERITY_COLOURS.get(t.severity, ("", "", "")) for t in tqs]
+
+    def cell(col: str, value: Any, fg: str, strong: str) -> str:
+        if col == "Severity":
+            return f"color: {strong}; font-weight: 700"
+        if col == "Sign-Off" and value:
+            return f"color: {SIGNOFF_COLOURS.get(str(value)[:1], fg)}; font-weight: 700"
+        return f"color: {fg}"
 
     def paint(row: pd.Series) -> list[str]:
         bg, fg, strong = colours[row.name]
         if not bg:
             return [""] * len(row)
-        return [f"background-color: {bg}; color: {strong if col == 'Severity' else fg}"
-                + ("; font-weight: 700" if col == "Severity" else "") for col in row.index]
+        return [f"background-color: {bg}; " + cell(col, row[col], fg, strong) for col in row.index]
 
     st.dataframe(frame.style.apply(paint, axis=1), hide_index=True, width="stretch",
-                 height=min(560, 38 + 35 * len(frame)))
+                 height=min(560, 38 + 35 * len(frame)),
+                 column_config={"Sign-Off": st.column_config.TextColumn(width="medium")})
 
 
 def result_or_empty(what: str, key: str):
@@ -61,6 +73,11 @@ def readiness_block(result) -> None:
             with st.expander("What needs fixing first", expanded=status == "BLOCKED"):
                 st.markdown("\n".join(f"- {md_escape(q)}" for q in questions))
                 st.caption("Every question, with a suggested fix, is on the TQ Board.")
+        signed = readiness_mod.signoff_counts(result, st.session_state.get("signoffs") or {})
+        if signed["waiting"] or signed[readiness_mod.PROBLEM]:
+            st.button("Sign Off Warnings On The TQ Board", key=f"signoff_go_{st.session_state.get('view', '')}",
+                      on_click=state.go_to, args=("TQ Board",),
+                      help="Warnings must be approved before the allocation can be ISSUE-READY.")
 
 
 def download_button(spec: ui_logic.DownloadSpec, ctx: dict[str, Any], result_key: str, key_prefix: str = "dl") -> None:

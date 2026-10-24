@@ -119,3 +119,11 @@ def test_bundle_all_holds_every_file(ctx):
     assert len(names) == len(ui_logic.available_downloads(False))
     assert ui_logic.bundle_all_name(ctx).endswith(".zip")
     assert json.loads(zipfile.ZipFile(io.BytesIO(data)).read(next(n for n in names if n.endswith(".json"))))
+
+
+def test_several_search_terms_keep_rows_matching_any():
+    sheet = pv.SheetPreview("s", ["Tag", "Cable"], [["T-1", "C-1"], ["T-2", "C-1"], ["T-3", "C-2"]], 3, [])
+    _, rows, _ = pv.filter_rows(sheet, ["t-1", " T-3 "])
+    assert [r[0] for r in rows] == ["T-1", "T-3"]
+    assert len(pv.filter_rows(sheet, [])[1]) == 3 and len(pv.filter_rows(sheet, ["", "  "])[1]) == 3
+    assert [r[0] for r in pv.filter_rows(sheet, "c-1")[1]] == ["T-1", "T-2"]          # one plain string still works

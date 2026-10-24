@@ -25,6 +25,14 @@ background:linear-gradient(135deg,#0f1b2d 0%,#161b22 55%,#101a14 100%);margin-bo
 .iosg-kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:.7rem .9rem;min-width:0}
 .iosg-kpi span{display:block;color:var(--muted);font-size:.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .iosg-kpi b{font-size:1.6rem}
+.iosg-kpi small{display:block;color:var(--accent);font-size:.72rem;margin-top:.1rem;opacity:.85}
+a.iosg-kpi{display:block;text-decoration:none;color:inherit}
+a.iosg-kpi-go:hover,[class*="st-key-kpicard_"]:hover .iosg-kpi-go{border-color:var(--accent);background:#1c2330}
+[class*="st-key-kpicard_"]{position:relative}
+[class*="st-key-kpigo_"]{position:absolute!important;inset:0;z-index:2;width:100%!important;height:100%!important}
+[class*="st-key-kpigo_"] .stButton,[class*="st-key-kpigo_"] button{width:100%!important;height:100%!important}
+[class*="st-key-kpigo_"] button{background:transparent!important;border:0!important;color:transparent!important;
+cursor:pointer;border-radius:10px}
 .iosg-badge{display:inline-block;padding:.2rem .7rem;border-radius:999px;font-weight:700;font-size:.85rem;border:1px solid}
 .iosg-badge.ready{color:var(--ok);border-color:var(--ok)}.iosg-badge.draft{color:var(--warn);border-color:var(--warn)}
 .iosg-badge.blocked{color:var(--bad);border-color:var(--bad)}
@@ -83,6 +91,16 @@ def kpi_html(cards: list[tuple[str, str]]) -> str:
     from html import escape
     return '<div class="iosg-kpis">' + "".join(
         f'<div class="iosg-kpi"><span title="{escape(k)}">{escape(k)}</span><b>{escape(v)}</b></div>' for k, v in cards) + "</div>"
+
+
+def kpi_card_html(label: str, value: str, hint: str, href: str | None = None) -> str:
+    """One summary box.  With `href` it is a link (same-page jump); otherwise a button is laid over it."""
+    from html import escape
+    body = (f'<span title="{escape(label)}">{escape(label)}</span><b>{escape(value)}</b>'
+            f'<small aria-hidden="true">{escape(hint)} \u2192</small>')
+    if href:
+        return f'<a class="iosg-kpi iosg-kpi-go" href="{escape(href)}">{body}</a>'
+    return f'<div class="iosg-kpi iosg-kpi-go">{body}</div>'
 
 
 def severity_cards_html(counts: dict[str, int]) -> str:

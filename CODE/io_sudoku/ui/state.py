@@ -11,6 +11,7 @@ import os
 
 import streamlit as st
 
+from io_sudoku.core import readiness as readiness_mod
 from io_sudoku.core.overrides import overrides_to_json
 from io_sudoku.core.rulepack import default_pack, pack_hash
 from io_sudoku.samples import sample_mdb_bytes
@@ -26,7 +27,7 @@ KEYS = {"mdb_bytes": None, "mdb_name": None, "mdb_sha": None, "template_bytes": 
         "last_good": None, "rev_a_rows": None, "rev_b_bytes": None, "impact": None, "proposals": [], "lite": False,
         "selected_cabinet": None, "tq_page": 0, "tq_filter": "all", "ui_error": None, "view": VIEWS[0],
         "confirm_reset": False, "health": None, "rev_b_result": None, "flash": None, "rev_key": "", "sim": None,
-        "rule_preview": None, "files_pick": None}
+        "rule_preview": None, "files_pick": None, "signoffs": {}, "solve_key": None}
 
 # Widget-bound keys must survive a view change (Streamlit forgets a widget's value when the widget is not drawn).
 _PERSIST = ("lite", "rev_label", "tq_filter", "tq_page", "selected_cabinet", "files_pick")
@@ -75,7 +76,8 @@ def _set_mdb(data: bytes, name: str) -> None:
     s = st.session_state
     sha = ui_logic.sha256_hex(data)
     if sha != s["mdb_sha"]:
-        s.update(mdb_bytes=data, mdb_name=name, mdb_sha=sha, column_overrides={}, impact=None, rev_a_rows=None)
+        s.update(mdb_bytes=data, mdb_name=name, mdb_sha=sha, column_overrides={}, impact=None, rev_a_rows=None,
+                 signoffs={})
         s["stale"] = s["result"] is not None
 
 
@@ -127,13 +129,62 @@ def on_solve() -> None:
             s["mdb_bytes"], ui_logic.pack_json(s["pack"]), overrides_to_json(s["overrides"]),
             json.dumps({k: list(v) for k, v in s["pins"].items()}), json.dumps(s["column_overrides"], sort_keys=True),
             s["rev_label"])
-        s.update(result=result, result_key=key, last_good=result, stale=False, ui_error=None)
+        s.update(result=result, solve_key=key, last_good=result, stale=False, ui_error=None)
+        refresh_readiness()
         if s["selected_cabinet"] not in ui_logic.cabinet_names(result.rows):
             s["selected_cabinet"] = (ui_logic.cabinet_names(result.rows) or [None])[0]
     except Exception:  # noqa: BLE001
         s["ui_error"] = "The solve stopped unexpectedly. Your last good result is still shown. Download the Support Bundle and report it."
         if s["last_good"] is not None:
             s["result"] = s["last_good"]
+
+
+def refresh_readiness() -> None:
+    """Re-classify the current result with the engineer's warning sign-offs (no re-solve needed).
+
+    The result key gets the sign-offs too, so every file is rebuilt with the new status in its name."""
+    s = st.session_state
+    result = s["result"]
+    if result is None:
+        return
+    result.readiness = readiness_mod.assess(result, s["signoffs"])
+    s["result_key"] = ui_logic.sha256_hex((s["solve_key"] or "") + "|" + json.dumps(s["signoffs"], sort_keys=True))
+
+
+def signoff_widget_key(warning_key: str) -> str:
+    return "signoff_" + ui_logic.sha256_hex(warning_key)[:12]
+
+
+SIGNOFF_LABELS = {readiness_mod.APPROVED: "✓ Approve", readiness_mod.PROBLEM: "✗ Problem"}
+
+
+def on_signoff(warning_key: str) -> None:
+    """One warning's Approve / Problem buttons changed (pressing the chosen one again clears it)."""
+    s = st.session_state
+    picked = s.get(signoff_widget_key(warning_key))
+    decision = next((d for d, label in SIGNOFF_LABELS.items() if label == picked), None)
+    signoffs = {k: v for k, v in s["signoffs"].items() if k != warning_key}
+    if decision:
+        signoffs[warning_key] = decision
+    s["signoffs"] = signoffs
+    refresh_readiness()
+
+
+def approve_all_warnings() -> None:
+    s = st.session_state
+    if s["result"] is None:
+        return
+    keys = {readiness_mod.warning_key(w) for w in readiness_mod.warnings_of(s["result"])}
+    s["signoffs"] = {**s["signoffs"], **{k: readiness_mod.APPROVED for k in keys}}
+    s["approve_all_ok"] = False
+    refresh_readiness()
+    flash("success", f"{len(keys):,} warnings approved.")
+
+
+def go_to(view: str) -> None:
+    """Open another view (used by the clickable summary boxes)."""
+    if view in VIEWS:
+        st.session_state["view"] = view
 
 
 def on_sample() -> None:

@@ -6,7 +6,7 @@ Open the app (`streamlit run app.py`). Keep **Try With Sample Data** as the offl
 2. **Health check of the human sample (45 s).** On **Health**, upload `io_sudoku/data/sample/sample_allocation.xlsx` and press *Run Health Check*.
    The score is below 100 and the 10% wired-spare rule (V10) is broken. "This is what manual allocation looks like."
 3. **Preflight and solve (45 s).** On **Upload** load the sample MDB (or press the sample button), open **Preflight**
-   (score 100, 83 IO-type spellings auto-fixed), then **Solve → Run Allocation**: about a second, 1,152 rows, `ISSUE-READY`, 0 violations.
+   (score 100, 83 IO-type spellings auto-fixed), then **Solve → Run Allocation**: about a second, 1,152 rows, 0 violations, `DRAFT` with 2 warnings to sign off. Click the **TQs Raised** box, approve both warnings under **Sign Off The Warnings**, and the badge turns `ISSUE-READY`.
 4. **Human vs IO Sudoku (20 s).** Run the health check again with a result present: the side-by-side scorecard appears.
 5. **Grid and drawings (40 s).** **Grid**: alarms on baseplate 1, empty end baseplates, A and B in separate CIOCs. Pick a tag under *Why Is It Here?*.
    **Drawings**: front and rear elevation.

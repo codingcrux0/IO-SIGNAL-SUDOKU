@@ -7,8 +7,9 @@ All files use the customer MDB format. Each one is the real sample MDB with a fe
 The table below was written by `scripts/make_test_cases.py` after solving every file,
 so it shows what the tool really does.
 
-- **ISSUE-READY**: clean enough to issue. Warnings may still be listed for you to confirm.
-- **DRAFT**: allocated, but some signals were held back or need an answer first.
+- **ISSUE-READY**: clean enough to issue, and every warning has been approved.
+- **DRAFT**: allocated, but some signals were held back, an error needs an answer, or a warning is not approved yet.
+  Approve warnings under **Sign Off The Warnings** on the TQ Board.
 - **BLOCKED**: nothing could be allocated (the file itself is the problem).
 
 Rebuild the files with `python scripts/make_test_cases.py`.
@@ -19,12 +20,12 @@ Rebuild the files with `python scripts/make_test_cases.py`.
 
 | File | What was changed | Result | Signals placed | Held back | Cabinets | Main questions raised |
 |---|---|---|---|---|---|---|
-| `01_clean_full_sample.xlsx` | The official sample MDB, unchanged (190 rows, 2 rooms). | **ISSUE-READY** | 177 | 0 | 3 | `ALARMS-MISSING-FOR-CABINET ×2` (info: DELETED-IN-MDB, HIGH-CURRENT-VERIFY, IO-TYPE2-NOTED) |
-| `02_clean_one_room_PIB-24.xlsx` | Only the 46 rows of room PIB-24. | **ISSUE-READY** | 43 | 0 | 1 | `ALARMS-MISSING-FOR-CABINET` (info: IO-TYPE2-NOTED) |
-| `03_messy_but_fixable.xlsx` | Title rows above the header, odd header case and spaces, extra spaces around tags, lower-case IO types and room names. The tool cleans all of it. | **ISSUE-READY** | 177 | 0 | 3 | `ALARMS-MISSING-FOR-CABINET ×2` (info: DELETED-IN-MDB, HIGH-CURRENT-VERIFY, IO-TYPE2-NOTED) |
-| `04_clean_sample.csv` | The full sample saved as a comma CSV. | **ISSUE-READY** | 177 | 0 | 3 | `ALARMS-MISSING-FOR-CABINET ×2` (info: DELETED-IN-MDB, HIGH-CURRENT-VERIFY, IO-TYPE2-NOTED) |
-| `05_clean_semicolon_PIB-24.csv` | Room PIB-24 as a semicolon CSV (European Excel). | **ISSUE-READY** | 43 | 0 | 1 | `ALARMS-MISSING-FOR-CABINET` (info: IO-TYPE2-NOTED) |
-| `06_formula_text_safety.csv` | Service texts that look like Excel formulas or HTML (=HYPERLINK, +SUM, @cmd, <b>). They must show as plain text, never run. | **ISSUE-READY** | 177 | 0 | 3 | `ALARMS-MISSING-FOR-CABINET ×2` (info: DELETED-IN-MDB, HIGH-CURRENT-VERIFY, IO-TYPE2-NOTED) |
+| `01_clean_full_sample.xlsx` | The official sample MDB, unchanged (190 rows, 2 rooms). | **DRAFT** until 2 warnings signed off, then **ISSUE-READY** | 177 | 0 | 3 | `ALARMS-MISSING-FOR-CABINET ×2` (info: DELETED-IN-MDB, HIGH-CURRENT-VERIFY, IO-TYPE2-NOTED) |
+| `02_clean_one_room_PIB-24.xlsx` | Only the 46 rows of room PIB-24. | **DRAFT** until 1 warning signed off, then **ISSUE-READY** | 43 | 0 | 1 | `ALARMS-MISSING-FOR-CABINET` (info: IO-TYPE2-NOTED) |
+| `03_messy_but_fixable.xlsx` | Title rows above the header, odd header case and spaces, extra spaces around tags, lower-case IO types and room names. The tool cleans all of it. | **DRAFT** until 2 warnings signed off, then **ISSUE-READY** | 177 | 0 | 3 | `ALARMS-MISSING-FOR-CABINET ×2` (info: DELETED-IN-MDB, HIGH-CURRENT-VERIFY, IO-TYPE2-NOTED) |
+| `04_clean_sample.csv` | The full sample saved as a comma CSV. | **DRAFT** until 2 warnings signed off, then **ISSUE-READY** | 177 | 0 | 3 | `ALARMS-MISSING-FOR-CABINET ×2` (info: DELETED-IN-MDB, HIGH-CURRENT-VERIFY, IO-TYPE2-NOTED) |
+| `05_clean_semicolon_PIB-24.csv` | Room PIB-24 as a semicolon CSV (European Excel). | **DRAFT** until 1 warning signed off, then **ISSUE-READY** | 43 | 0 | 1 | `ALARMS-MISSING-FOR-CABINET` (info: IO-TYPE2-NOTED) |
+| `06_formula_text_safety.csv` | Service texts that look like Excel formulas or HTML (=HYPERLINK, +SUM, @cmd, <b>). They must show as plain text, never run. | **DRAFT** until 2 warnings signed off, then **ISSUE-READY** | 177 | 0 | 3 | `ALARMS-MISSING-FOR-CABINET ×2` (info: DELETED-IN-MDB, HIGH-CURRENT-VERIFY, IO-TYPE2-NOTED) |
 
 ## Data errors
 
@@ -43,8 +44,8 @@ Rebuild the files with `python scripts/make_test_cases.py`.
 | File | What was changed | Result | Signals placed | Held back | Cabinets | Main questions raised |
 |---|---|---|---|---|---|---|
 | `14_cable_too_large.xlsx` | Cable 320-CE-0083 says 120 pairs; one CIOC holds 96. | **DRAFT** | 158 | 19 | 3 | `CABLE-TOO-LARGE`, `ALARMS-MISSING-FOR-CABINET ×2` (info: DELETED-IN-MDB, HIGH-CURRENT-VERIFY, IO-TYPE2-NOTED) |
-| `15_new_room_PIB-40.xlsx` | Cables 320-CE-0040 and 320-CS-0008 moved to room PIB-40, which has no cabinet yet. The tool names one and asks you to confirm. | **ISSUE-READY** | 177 | 0 | 4 | `ALARMS-MISSING-FOR-CABINET ×2`, `TOPOLOGY-INFERRED` (info: DELETED-IN-MDB, HIGH-CURRENT-VERIFY, IO-TYPE2-NOTED) |
-| `16_big_project_1600_signals.xlsx` | 1,600 signals on 80 cables in one room: more than one cabinet holds, so cabinets are added and listed as TQs. | **ISSUE-READY** | 1600 | 0 | 8 | `ALARMS-MISSING-FOR-CABINET ×2`, `CABINET-AUTO-ADDED ×5` (info: HIGH-CURRENT-VERIFY) |
+| `15_new_room_PIB-40.xlsx` | Cables 320-CE-0040 and 320-CS-0008 moved to room PIB-40, which has no cabinet yet. The tool names one and asks you to confirm. | **DRAFT** until 3 warnings signed off, then **ISSUE-READY** | 177 | 0 | 4 | `ALARMS-MISSING-FOR-CABINET ×2`, `TOPOLOGY-INFERRED` (info: DELETED-IN-MDB, HIGH-CURRENT-VERIFY, IO-TYPE2-NOTED) |
+| `16_big_project_1600_signals.xlsx` | 1,600 signals on 80 cables in one room: more than one cabinet holds, so cabinets are added and listed as TQs. | **DRAFT** until 7 warnings signed off, then **ISSUE-READY** | 1600 | 0 | 8 | `ALARMS-MISSING-FOR-CABINET ×2`, `CABINET-AUTO-ADDED ×5` (info: HIGH-CURRENT-VERIFY) |
 
 ## Blocked
 

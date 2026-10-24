@@ -67,4 +67,8 @@ worst-fit-decreasing, family A and B never share a CIOC, CIOC 1 baseplate 1 hold
 10% wired spares per controller and IO type are converted from unused pairs, and the last baseplates stay empty
 for future growth. An independent verifier (rules V01 to V16) re-checks the finished allocation, and a readiness
 gate marks the result `ISSUE-READY`, `DRAFT` or `BLOCKED`. Bad data never crashes the tool: it becomes a TQ.
+On the website a result with warnings stays `DRAFT` until an engineer approves every warning under
+**Sign Off The Warnings** on the TQ Board; one marked as a problem keeps it in `DRAFT`. **Re-allocate** re-runs
+the solve, and approvals stay on warnings that come back unchanged. The command line has no review step, so
+there warnings are only listed.
 The Rules view shows exactly which rules are locked and which projects may tune.

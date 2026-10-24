@@ -1,10 +1,11 @@
-"""TQ board: filter and page the questions, answer them from dropdowns, pin cables, copy e-mail text."""
+"""TQ board: sign off warnings, filter and page the questions, answer them, pin cables, copy e-mail text."""
 from __future__ import annotations
 
 import json
 
 import streamlit as st
 
+from io_sudoku.core import readiness as readiness_mod
 from io_sudoku.core.config import Config
 from io_sudoku.core.ingest import read_mdb
 from io_sudoku.core.models import Signal
@@ -15,7 +16,7 @@ from io_sudoku.core.tq import TQLog
 from io_sudoku.core.tqlife import group_by_owner, tqs_as_email_text
 from io_sudoku.core.validate import validate
 from io_sudoku.ui import state, theme, ui_logic
-from io_sudoku.ui.views._common import result_or_empty, tq_table
+from io_sudoku.ui.views._common import md_escape, result_or_empty, tq_table
 
 
 @st.cache_data(max_entries=4, show_spinner=False)
@@ -41,6 +42,7 @@ def render() -> None:
     tqs = result.tqs
     counts = {sev: sum(1 for t in tqs if t.severity == sev) for sev in ("error", "warning", "info")}
     st.markdown(theme.severity_cards_html(counts), unsafe_allow_html=True)
+    _signoff(result)
     if not tqs:
         st.success("No questions were raised. Nothing needs an answer.")
     else:
@@ -55,12 +57,44 @@ def render() -> None:
         st.caption(f"Showing {len(page_items):,} of {len(shown):,} questions, errors first. "
                    "Red = error (must be answered), amber = warning (please confirm), blue = info (no action).")
         if page_items:
-            tq_table(page_items)
+            tq_table(page_items, s["signoffs"])
         else:
             st.info("No questions match your filter.")
         _email_text(tqs)
         _answers(result)
     _pins(result)
+
+
+def _signoff(result) -> None:
+    """Every warning needs an engineer's Approve before the allocation can be ISSUE-READY."""
+    s = st.session_state
+    warnings = ui_logic.warning_rows(result)
+    st.subheader("Sign Off The Warnings")
+    if not warnings:
+        st.caption("There are no warnings to sign off.")
+    else:
+        signed = readiness_mod.signoff_counts(result, s["signoffs"])
+        st.caption(f"{signed[readiness_mod.APPROVED]:,} of {signed['total']:,} approved \u00b7 "
+                   f"{signed[readiness_mod.PROBLEM]:,} marked as a problem \u00b7 {signed['waiting']:,} waiting. "
+                   "The allocation stays DRAFT until every warning is approved. Mark one as a problem to keep it in "
+                   "DRAFT, then fix the cause and re-allocate.")
+        box = st.container(height=420) if len(warnings) > 8 else st.container()
+        with box:
+            for key, kind, ref, text in warnings:
+                widget = state.signoff_widget_key(key)
+                s[widget] = state.SIGNOFF_LABELS.get(s["signoffs"].get(key))     # the sign-offs are the one source of truth
+                left, right = st.columns([4, 2], vertical_alignment="center")
+                left.markdown(f"\u25b2 **{md_escape(kind)}** \u00b7 {md_escape(ref) or '-'}  \n"
+                              f"<small>{md_escape(text)}</small>", unsafe_allow_html=True)
+                right.segmented_control(f"Sign-off for {kind} {ref}", list(state.SIGNOFF_LABELS.values()), key=widget,
+                                        on_change=state.on_signoff, args=(key,), label_visibility="collapsed")
+        if signed["waiting"]:
+            c1, c2 = st.columns([3, 2], vertical_alignment="center")
+            sure = c1.checkbox("I have checked every warning above", key="approve_all_ok")
+            c2.button("Approve All Warnings", key="approve_all", disabled=not sure, on_click=state.approve_all_warnings)
+    st.button("Re-allocate", key="reallocate_tq", type="primary", on_click=state.on_solve, disabled=not s["mdb_bytes"],
+              help="Runs the allocation again with your answers, pins and rules, so new warnings and errors show up. "
+                   "Approvals stay on warnings that come back unchanged.")
 
 
 def _email_text(tqs) -> None:

@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import openpyxl  # noqa: E402
 
 from io_sudoku.core.pipeline import solve      # noqa: E402
+from io_sudoku.core.readiness import signoff_counts  # noqa: E402
 from io_sudoku.samples import sample_mdb_bytes  # noqa: E402
 
 OUT_DIR = Path(__file__).resolve().parents[1] / "test_cases"
@@ -352,7 +353,10 @@ def summarise(data: bytes) -> dict[str, Any]:
     order = {"error": 0, "warning": 1, "info": 2}
     tqs = sorted(kinds.items(), key=lambda kv: (order.get(kv[0][0], 3), kv[0][1]))
     field_rows = sum(1 for r in result.rows if r.get("Tag Status") == "Field")
-    return {"status": status, "placed": field_rows, "quarantined": len(result.quarantined),
+    waiting = signoff_counts(result, {})["total"]
+    shown = f"**DRAFT** until {waiting} warning{'s' if waiting != 1 else ''} signed off, then **ISSUE-READY**" \
+        if status == "ISSUE-READY" and waiting else f"**{status}**"
+    return {"status": status, "shown": shown, "placed": field_rows, "quarantined": len(result.quarantined),
             "tqs": [f"{tq_id} ×{n}" if n > 1 else tq_id for (sev, tq_id), n in tqs if sev != "info"],
             "info": [tq_id for (sev, tq_id), _ in tqs if sev == "info"],
             "cabinets": len({r.get("Electronic/ Marshalling Cabinet") for r in result.rows}),
@@ -368,8 +372,9 @@ All files use the customer MDB format. Each one is the real sample MDB with a fe
 The table below was written by `scripts/make_test_cases.py` after solving every file,
 so it shows what the tool really does.
 
-- **ISSUE-READY**: clean enough to issue. Warnings may still be listed for you to confirm.
-- **DRAFT**: allocated, but some signals were held back or need an answer first.
+- **ISSUE-READY**: clean enough to issue, and every warning has been approved.
+- **DRAFT**: allocated, but some signals were held back, an error needs an answer, or a warning is not approved yet.
+  Approve warnings under **Sign Off The Warnings** on the TQ Board.
 - **BLOCKED**: nothing could be allocated (the file itself is the problem).
 
 Rebuild the files with `python scripts/make_test_cases.py`.
@@ -395,7 +400,7 @@ def main() -> int:
         tqs = ", ".join(f"`{t}`" for t in got["tqs"]) or "none"
         if got["info"]:
             tqs += " (info: " + ", ".join(got["info"]) + ")"
-        lines.append(f"| `{case.file}` | {case.what} | **{got['status']}** | {got['placed']} | {got['quarantined']} "
+        lines.append(f"| `{case.file}` | {case.what} | {got['shown']} | {got['placed']} | {got['quarantined']} "
                      f"| {got['cabinets']} | {tqs} |")
         print(f"{got['status']:<12} {case.file}")
     (OUT_DIR / "README.md").write_text("\n".join(lines) + "\n", encoding="utf-8")

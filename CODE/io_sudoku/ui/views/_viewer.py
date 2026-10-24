@@ -62,8 +62,10 @@ def _table(preview: pv.FilePreview, key: str) -> None:
         st.info("This sheet is empty.")
         return
     left, right = st.columns([2, 3])
-    needle = left.text_input("Search", key=f"{key}_search", autocomplete="off",
-                             placeholder="A tag, cable, cabinet or any text")
+    needle = left.multiselect("Search", [], key=f"{key}_search", accept_new_options=True,
+                              placeholder="Type a tag and press Enter; add more the same way",
+                              help="Each search becomes a tag you can remove with its \u2715. "
+                                   "Rows matching any of the tags are shown.")
     shown_cols = right.multiselect("Show Only These Columns", sheet.columns, key=f"{key}_cols",
                                    placeholder="All columns")
     mark = ""

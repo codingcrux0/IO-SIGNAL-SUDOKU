@@ -224,9 +224,37 @@ def by_severity(tqs: list[TQ]) -> list[TQ]:
     return sorted(tqs, key=lambda t: SEVERITY_RANK.get(t.severity, 3))
 
 
-def tq_rows(tqs: list[TQ]) -> list[dict[str, Any]]:
-    return [{"ID": t.tq_id, "Severity": SEVERITY_LABEL.get(t.severity, t.severity), "Owner": t.owner,
-             "Reference": t.ref, "Question": t.message, "Suggested Fix": t.resolution} for t in tqs]
+SIGNOFF_TEXT = {readiness_mod.APPROVED: "\u2713 Approved", readiness_mod.PROBLEM: "\u2717 Problem"}
+
+
+def signoff_text(item: Any, signoffs: dict[str, str]) -> str:
+    """'✓ Approved' / '✗ Problem' / 'Waiting' for a warning; '' for anything else."""
+    if getattr(item, "severity", "") != "warning":
+        return ""
+    return SIGNOFF_TEXT.get(signoffs.get(readiness_mod.warning_key(item), ""), "Waiting")
+
+
+def tq_rows(tqs: list[TQ], signoffs: dict[str, str] | None = None) -> list[dict[str, Any]]:
+    """Table rows for TQs; with `signoffs`, a Sign-Off column shows each warning's state."""
+    rows = []
+    for t in tqs:
+        row = {"ID": t.tq_id, "Severity": SEVERITY_LABEL.get(t.severity, t.severity)}
+        if signoffs is not None:
+            row["Sign-Off"] = signoff_text(t, signoffs)
+        row.update({"Owner": t.owner, "Reference": t.ref, "Question": t.message, "Suggested Fix": t.resolution})
+        rows.append(row)
+    return rows
+
+
+def warning_rows(result: SolveResult) -> list[tuple[str, str, str, str]]:
+    """(warning key, id, reference, text) for every distinct warning to sign off, TQs then verifier findings."""
+    seen: dict[str, tuple[str, str, str, str]] = {}
+    for w in readiness_mod.warnings_of(result):
+        key = readiness_mod.warning_key(w)
+        if key not in seen:
+            kind = getattr(w, "tq_id", None) or f"Check {getattr(w, 'rule', '')}"
+            seen[key] = (key, kind, str(w.ref), str(w.message))
+    return list(seen.values())
 
 
 # ---------------------------------------------------------------------------------- KPIs
@@ -236,6 +264,13 @@ def kpi_cards(result: SolveResult) -> list[tuple[str, str]]:
             ("Cabinets Used", f"{k.get('cabinets_used', 0):,}"), ("Cabinet Alarms", f"{k.get('cabinet_alarm', 0):,}"),
             ("TQs Raised", f"{k.get('tq_error', 0) + k.get('tq_warning', 0) + k.get('tq_info', 0):,}"),
             ("Spare Compliance", f"{k.get('spare_compliance_pct', 100)}%")]
+
+
+SPARES_ANCHOR = "wired-spares"
+# Where each summary box on the Solve view leads: ('view', name) opens a view, ('anchor', id) scrolls the page.
+KPI_LINKS: dict[str, tuple[str, str]] = {
+    "Field Signals": ("view", "Grid"), "Wired Spares": ("anchor", SPARES_ANCHOR), "Cabinets Used": ("view", "Drawings"),
+    "Cabinet Alarms": ("view", "Grid"), "TQs Raised": ("view", "TQ Board"), "Spare Compliance": ("anchor", SPARES_ANCHOR)}
 
 
 def readiness_text(result: SolveResult) -> tuple[str, list[str]]:

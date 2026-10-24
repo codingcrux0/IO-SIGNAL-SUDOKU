@@ -29,7 +29,7 @@ def test_every_view_renders_empty_without_exceptions():
 
 def test_sample_button_solves_and_all_views_render():
     at = run("Upload", sample=True)
-    assert at.session_state["result"] is not None and at.session_state["result"].readiness.status == "ISSUE-READY"
+    assert at.session_state["result"] is not None and at.session_state["result"].readiness.status == "DRAFT"   # 2 warnings
     for view in VIEWS:
         at.session_state["view"] = view
         at.run()
@@ -119,9 +119,15 @@ def test_viewer_search_narrows_rows():
     at = run("Files", sample=True)
     at.session_state["view"] = "Files"
     at.run()
-    search = next(t for t in at.text_input if t.label == "Search")
-    search.set_value("zzz-no-such-tag").run()
+    search = next(m for m in at.multiselect if m.label == "Search")
+    search.set_value(["zzz-no-such-tag"]).run()
     assert not at.exception and any("No row matches" in i.value for i in at.info)
+    rows = len(at.session_state["result"].rows)
+    tags = [r["Tag Name"] for r in at.session_state["result"].rows if r.get("Tag Status") == "Field"][:2]
+    next(m for m in at.multiselect if m.label == "Search").set_value(tags).run()     # two tags: rows of either
+    assert not at.exception
+    shown = [d.value for d in at.dataframe if 0 < d.value.shape[0] < rows]
+    assert shown and set(shown[0]["Tag Name"]) >= set(tags)
 
 
 def test_view_here_toggle_on_parts_and_upload():
@@ -213,3 +219,41 @@ def test_tq_board_colours_rows_by_severity():
     assert not at.exception, [e.value for e in at.exception]
     assert any("iosg-sev" in m.value for m in at.markdown)
     assert at.dataframe[0].value.iloc[0]["Severity"] == "● Error"
+
+
+def test_summary_boxes_open_their_views():
+    at = run("Solve", sample=True)
+    at.session_state["view"] = "Solve"
+    at.run()
+    for key, view in (("kpigo_tqsraised", "TQ Board"), ("kpigo_fieldsignals", "Grid"), ("kpigo_cabinetsused", "Drawings")):
+        at.session_state["view"] = "Solve"
+        at.run()
+        at.button(key=key).click().run()
+        assert not at.exception and at.session_state["view"] == view
+
+
+def test_warnings_must_be_signed_off_before_issue_ready():
+    at = run("TQ Board", sample=True)
+    at.session_state["view"] = "TQ Board"
+    at.run()
+    assert at.session_state["result"].readiness.status == "DRAFT"
+    controls = [c for c in at.get("segmented_control")]
+    assert len(controls) == 2
+    controls[0].set_value("✓ Approve").run()
+    assert at.session_state["result"].readiness.status == "DRAFT"                     # one still waiting
+    [c for c in at.get("segmented_control")][1].set_value("✗ Problem").run()
+    assert at.session_state["result"].readiness.status == "DRAFT"                     # a problem keeps it in draft
+    [c for c in at.get("segmented_control")][1].set_value("✓ Approve").run()
+    assert at.session_state["result"].readiness.status == "ISSUE-READY"
+    at.button(key="reallocate_tq").click().run()                                      # approvals survive a re-allocation
+    assert not at.exception and at.session_state["result"].readiness.status == "ISSUE-READY"
+
+
+def test_approve_all_needs_the_checkbox():
+    at = run("TQ Board", sample=True)
+    at.session_state["view"] = "TQ Board"
+    at.run()
+    assert at.button(key="approve_all").disabled
+    at.checkbox(key="approve_all_ok").check().run()
+    at.button(key="approve_all").click().run()
+    assert at.session_state["result"].readiness.status == "ISSUE-READY"
