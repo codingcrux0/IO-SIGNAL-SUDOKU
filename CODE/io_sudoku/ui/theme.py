@@ -49,6 +49,12 @@ border-color:var(--c,#888)}
 .iosg-legend span{display:inline-flex;align-items:center;gap:.35rem}
 .iosg-legend i{display:inline-block;width:18px;height:14px;border-radius:3px}
 .iosg-trunc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.iosg-sev{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.7rem;margin:.4rem 0 1rem}
+.iosg-sev div{background:var(--panel);border:1px solid var(--line);border-left:5px solid var(--c);border-radius:10px;
+padding:.6rem .9rem;min-width:0}
+.iosg-sev span{display:block;color:var(--muted);font-size:.85rem}
+.iosg-sev b{font-size:1.7rem;color:var(--c)}
+.sev-error{--c:var(--bad)}.sev-warning{--c:var(--warn)}.sev-info{--c:var(--accent)}
 [data-testid="stSidebar"]{border-right:1px solid var(--line)}
 iframe[data-testid=stIFrame]{background:#fff;border-radius:8px;color-scheme:light}
 .iosg-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
@@ -77,6 +83,15 @@ def kpi_html(cards: list[tuple[str, str]]) -> str:
     from html import escape
     return '<div class="iosg-kpis">' + "".join(
         f'<div class="iosg-kpi"><span title="{escape(k)}">{escape(k)}</span><b>{escape(v)}</b></div>' for k, v in cards) + "</div>"
+
+
+def severity_cards_html(counts: dict[str, int]) -> str:
+    """Three coloured counters: red errors, amber warnings, blue info (same colours as the TQ table rows)."""
+    cards = (("error", "Errors", "must be answered"), ("warning", "Warnings", "please confirm"),
+             ("info", "Info", "no action needed"))
+    return '<div class="iosg-sev" role="group" aria-label="Questions by severity">' + "".join(
+        f'<div class="sev-{sev}"><span>{label} · {hint}</span><b>{counts.get(sev, 0):,}</b></div>'
+        for sev, label, hint in cards) + "</div>"
 
 
 LEGEND_HTML = (

@@ -98,3 +98,15 @@ def test_workspace_round_trip_through_the_ui_callback(sample):
     data, _, _ = ui_logic.build_download("workspace", make_ctx(sample))
     state, why = import_workspace(data)
     assert state is not None and why == "" and len(state.rows) == 1152
+
+
+def test_tqs_sort_errors_first_and_label_their_severity():
+    from io_sudoku.core.tq import TQLog
+    log = TQLog()
+    for tq_id in ("DELETED-IN-MDB", "TOPOLOGY-INFERRED", "BLANK-TAG", "SECTION-UNDERIVABLE", "MISSING-PAIR"):
+        log.add(tq_id, "x")
+    ordered = ui_logic.by_severity(log.items())
+    assert [t.severity for t in ordered] == ["error", "error", "warning", "info", "info"]
+    assert [t.tq_id for t in ordered][:2] == ["BLANK-TAG", "MISSING-PAIR"]          # stable inside a group
+    assert [r["Severity"] for r in ui_logic.tq_rows(ordered)] == ["● Error", "● Error", "▲ Warning", "ℹ Info", "ℹ Info"]
+    assert set(ui_logic.SEVERITY_COLOURS) == {"error", "warning", "info"}

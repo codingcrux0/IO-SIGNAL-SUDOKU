@@ -20,6 +20,11 @@ python3 -m venv .venv
 
 Open the address Streamlit prints, press **Try With Sample Data**, and explore the views in the sidebar.
 
+To see how the tool handles bad input, upload a file from `test_cases/`. The 21 files there are copies of the sample
+MDB with problems planted on purpose: messy formatting, tag, IO type, cable, pair, segregation and alarm errors, an
+oversized project, and files that cannot be read at all. `test_cases/README.md` lists what each one should show, and
+the test suite checks every file still gives that result. Rebuild them with `.venv/bin/python scripts/make_test_cases.py`.
+
 Every output can be opened in the browser before you download it: the **Files** view (and a **View Here** switch on
 Parts, Drawings, Revision and Health) shows workbooks as searchable tables, pages as pages, JSON as a tree and ZIP
 bundles file by file. The viewer is read-only; **Download This View (.csv)** exports exactly the rows you filtered, and
@@ -39,7 +44,7 @@ Exit codes: `0` ISSUE-READY, `1` DRAFT (open TQs), `2` BLOCKED. Run `--help` on 
 ## Test it
 
 ```bash
-.venv/bin/python -m pytest          # about 500 tests: rules, golden output, fuzzing, scale, UI
+.venv/bin/python -m pytest          # about 600 tests: rules, golden output, fuzzing, scale, test cases, UI
 ```
 
 ## Layout
@@ -51,6 +56,7 @@ Exit codes: `0` ISSUE-READY, `1` DRAFT (open TQs), `2` BLOCKED. Run `--help` on 
 | `io_sudoku/ui/` | state, theme, error boundary and one file per view |
 | `io_sudoku/data/` | template, topology, column aliases, hardware catalogue, rule pack, sample files |
 | `tests/` | unit, golden, robustness (fuzz), scale, UI smoke tests |
+| `test_cases/` | 21 MDB files (clean, messy, broken) for trying the website, with a README of expected results |
 | `docs/DEMO.md` | the 5-minute demo script |
 | `DEPLOY.md` | hosting on Streamlit Community Cloud, Docker or any server |
 

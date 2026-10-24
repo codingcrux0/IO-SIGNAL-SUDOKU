@@ -14,8 +14,8 @@ from io_sudoku.core.topology_infer import infer_cabinets
 from io_sudoku.core.tq import TQLog
 from io_sudoku.core.tqlife import group_by_owner, tqs_as_email_text
 from io_sudoku.core.validate import validate
-from io_sudoku.ui import state, ui_logic
-from io_sudoku.ui.views._common import result_or_empty
+from io_sudoku.ui import state, theme, ui_logic
+from io_sudoku.ui.views._common import result_or_empty, tq_table
 
 
 @st.cache_data(max_entries=4, show_spinner=False)
@@ -40,24 +40,22 @@ def render() -> None:
         return
     tqs = result.tqs
     counts = {sev: sum(1 for t in tqs if t.severity == sev) for sev in ("error", "warning", "info")}
-    a, b, c = st.columns(3)
-    a.metric("Errors", f"{counts['error']:,}")
-    b.metric("Warnings", f"{counts['warning']:,}")
-    c.metric("Info", f"{counts['info']:,}")
+    st.markdown(theme.severity_cards_html(counts), unsafe_allow_html=True)
     if not tqs:
         st.success("No questions were raised. Nothing needs an answer.")
     else:
         f1, f2 = st.columns([1, 2])
         f1.selectbox("Show", ui_logic.TQ_FILTERS, key="tq_filter")
         text = f2.text_input("Search", key="tq_search", autocomplete="off", placeholder="Tag, cable or words…")
-        shown = ui_logic.filter_tqs(tqs, s["tq_filter"], text)
+        shown = ui_logic.by_severity(ui_logic.filter_tqs(tqs, s["tq_filter"], text))
         page_items, page, pages = ui_logic.page_slice(shown, s["tq_page"])
         if pages > 1:
             s["tq_page"] = page
             st.number_input(f"Page (of {pages:,})", min_value=0, max_value=pages - 1, key="tq_page", step=1)
-        st.caption(f"Showing {len(page_items):,} of {len(shown):,} questions.")
+        st.caption(f"Showing {len(page_items):,} of {len(shown):,} questions, errors first. "
+                   "Red = error (must be answered), amber = warning (please confirm), blue = info (no action).")
         if page_items:
-            st.dataframe(ui_logic.tq_rows(page_items), hide_index=True, width="stretch")
+            tq_table(page_items)
         else:
             st.info("No questions match your filter.")
         _email_text(tqs)

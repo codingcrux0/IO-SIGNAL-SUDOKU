@@ -41,6 +41,11 @@ def render() -> None:
         st.info("Upload a file above, or load the sample data, to continue.")
         return
     st.success(f"Loaded {s['mdb_name']} ({len(s['mdb_bytes']):,} bytes, fingerprint {s['mdb_sha'][:10]}).")
+    if ui_logic.is_allocation_file(s["mdb_bytes"]):
+        st.info("This file is a finished IO Allocation, not an MDB. It still works: its Field signals and cabinet "
+                "alarms are allocated again by the rules, spares are rebuilt, and rows whose values slipped out of "
+                "their columns are repaired and listed as TQs. To keep the old positions instead, use it as Rev A on "
+                "the Revision view; to check it against the rules, use the Health view.")
     st.button("Run Allocation", key="solve_upload", on_click=state.on_solve, type="primary")
     if s["ui_error"]:
         st.error(s["ui_error"])

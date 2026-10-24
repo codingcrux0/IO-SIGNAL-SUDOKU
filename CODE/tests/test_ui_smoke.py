@@ -165,3 +165,51 @@ def test_viewer_renders_redline_colours():
     assert any(r.label == "Highlighted Changes" for r in at.radio)
     at.radio(key="red_mark").set_value("Moved").run()
     assert not at.exception
+
+
+def _load(at: AppTest, data: bytes, name: str) -> None:
+    import hashlib
+    at.session_state["mdb_bytes"] = data
+    at.session_state["mdb_name"] = name
+    at.session_state["mdb_sha"] = hashlib.sha256(data).hexdigest()
+
+
+def test_allocation_upload_is_explained_and_solves():
+    from io_sudoku.core.allocio import allocation_bytes
+    from io_sudoku.samples import sample_mdb_bytes
+    from io_sudoku.ui import ui_logic
+    rows = ui_logic.solve_inputs(sample_mdb_bytes(), "", "[]", "{}", "{}", "00").rows
+    at = AppTest.from_file(APP, default_timeout=60)
+    at.run()
+    _load(at, allocation_bytes(rows)[0], "old_allocation.xlsx")
+    at.run()
+    assert any("finished IO Allocation" in i.value for i in at.info)
+    next(b for b in at.button if b.label == "Run Allocation").click().run()
+    assert not at.exception and at.session_state["result"].kpis["field"] > 0
+
+
+def test_blocked_result_says_what_to_fix():
+    at = AppTest.from_file(APP, default_timeout=60)
+    at.run()
+    _load(at, b"Tag,Something\nT-1,x\n", "bad.csv")
+    at.run()
+    next(b for b in at.button if b.label == "Run Allocation").click().run()
+    at.session_state["view"] = "Solve"
+    at.run()
+    assert not at.exception
+    assert at.session_state["result"].readiness.status == "BLOCKED"
+    assert any(e.label == "What needs fixing first" for e in at.expander)
+
+
+
+def test_tq_board_colours_rows_by_severity():
+    at = AppTest.from_file(APP, default_timeout=60)
+    at.run()
+    _load(at, (Path(__file__).resolve().parents[1] / "test_cases" / "13_everything_wrong.xlsx").read_bytes(), "bad.xlsx")
+    at.run()
+    next(b for b in at.button if b.label == "Run Allocation").click().run()
+    at.session_state["view"] = "TQ Board"
+    at.run()
+    assert not at.exception, [e.value for e in at.exception]
+    assert any("iosg-sev" in m.value for m in at.markdown)
+    assert at.dataframe[0].value.iloc[0]["Severity"] == "● Error"

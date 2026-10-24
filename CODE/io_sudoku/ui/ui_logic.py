@@ -106,6 +106,32 @@ def list_headers(mdb_bytes: bytes) -> list[str]:
         return []
 
 
+@st.cache_data(max_entries=8, show_spinner=False)
+def is_allocation_file(mdb_bytes: bytes) -> bool:
+    """True if the uploaded 'MDB' is really a finished IO Allocation (76-column template)."""
+    try:
+        from io_sudoku.core import allocinput, ingest
+        tables = ingest._xlsx_tables(mdb_bytes) if mdb_bytes[:2] == b"PK" else ingest._csv_tables(mdb_bytes)
+        for _name, rows in tables:
+            first = next((r for r in rows[:10] if any(c is not None and str(c).strip() for c in r)), None)
+            if first is not None and allocinput.detect(first) is not None:
+                return True
+    except Exception:  # noqa: BLE001 - only a hint for the Upload view
+        pass
+    return False
+
+
+def blocking_questions(result: SolveResult, limit: int = 5) -> list[str]:
+    """The first few distinct error questions, in plain words (shown under a BLOCKED or DRAFT badge)."""
+    seen: list[str] = []
+    for t in result.tqs:
+        if t.severity == "error" and t.message not in seen:
+            seen.append(t.message)
+        if len(seen) >= limit:
+            break
+    return seen
+
+
 # -------------------------------------------------------------------------------- the grid
 def _cell_parts(row: dict[str, Any]) -> tuple[int, int, int] | None:
     digits = "".join(ch for ch in str(row.get("CIOC/CSLS Name") or "")[-3:] if ch.isdigit())
@@ -186,9 +212,21 @@ def page_slice(items: list[Any], page: int, size: int = PAGE_SIZE) -> tuple[list
     return items[page * size:(page + 1) * size], page, pages
 
 
+SEVERITY_RANK = {"error": 0, "warning": 1, "info": 2}
+SEVERITY_LABEL = {"error": "● Error", "warning": "▲ Warning", "info": "ℹ Info"}     # shape + word, not colour alone
+# (row background, row text, Severity cell text) - tinted to stay readable on the dark theme
+SEVERITY_COLOURS = {"error": ("#3d1518", "#ffd8d5", "#ff7b72"), "warning": ("#3a2d0c", "#f6e3b0", "#e3b341"),
+                    "info": ("#0f2740", "#d2e6ff", "#79c0ff")}
+
+
+def by_severity(tqs: list[TQ]) -> list[TQ]:
+    """Errors first, then warnings, then info; the original order is kept inside each group."""
+    return sorted(tqs, key=lambda t: SEVERITY_RANK.get(t.severity, 3))
+
+
 def tq_rows(tqs: list[TQ]) -> list[dict[str, Any]]:
-    return [{"ID": t.tq_id, "Severity": t.severity, "Owner": t.owner, "Reference": t.ref, "Question": t.message,
-             "Suggested Fix": t.resolution} for t in tqs]
+    return [{"ID": t.tq_id, "Severity": SEVERITY_LABEL.get(t.severity, t.severity), "Owner": t.owner,
+             "Reference": t.ref, "Question": t.message, "Suggested Fix": t.resolution} for t in tqs]
 
 
 # ---------------------------------------------------------------------------------- KPIs

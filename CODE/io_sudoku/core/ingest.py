@@ -8,15 +8,17 @@ What this module guarantees:
   * Text is cleaned with textnorm (ends stripped, inner spaces of tags kept).
   * IO types are normalised (AI/DI/DO/AO -> AIR/DIR/DOR/AOR).
   * Rows marked DELETED are set aside; Cabinet Diagnostic Alarm rows go to `alarms`.
+  * A finished IO Allocation is accepted too: only its Field rows are read (see allocinput).
 """
 from __future__ import annotations
 
 import csv
 import io
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, BinaryIO
 
+from io_sudoku.core import allocinput
 from io_sudoku.core.columnmap import ColumnMatch, load_aliases, map_columns, missing_mandatory
 from io_sudoku.core.constants import IO_TYPES, MAX_DATA_ROWS, MAX_FILE_BYTES
 from io_sudoku.core.models import Signal
@@ -185,6 +187,10 @@ def _build_signal(row: tuple[Any, ...], excel_row: int, sheet: str, mapping: dic
 
 def _read_table(sheet: str, rows: list[tuple[Any, ...]], mapping: dict[str, ColumnMatch], header_index: int,
                 extra_io_aliases: dict[str, str] | None, result: IngestResult, log: TQLog) -> None:
+    layout = allocinput.detect(rows[header_index]) if header_index < len(rows) else None
+    shifted: dict[tuple[int, str], list[int]] = {}       # (shift, first moved header) -> Excel rows
+    broken: list[int] = []
+    not_copied: dict[str, int] = {}
     for offset, row in enumerate(rows[header_index + 1:], start=header_index + 2):
         if all(is_blank(c) for c in row):
             result.stats["blank_rows_skipped"] += 1
@@ -192,7 +198,21 @@ def _read_table(sheet: str, rows: list[tuple[Any, ...]], mapping: dict[str, Colu
         result.rows_read += 1
         if result.rows_read > MAX_DATA_ROWS:
             return
+        if layout is not None:
+            fixed, shift, moved_from = layout.realign(row)
+            if fixed is None:
+                broken.append(offset)
+                continue
+            if shift:
+                shifted.setdefault((shift, moved_from), []).append(offset)
+            row = tuple(fixed)
+            status = layout.status(row)
+            if status not in ("Field", "Cabinet Alarm"):   # spares are rebuilt by the rules
+                not_copied[status or "?"] = not_copied.get(status or "?", 0) + 1
+                continue
         signal = _build_signal(row, offset, sheet, mapping, extra_io_aliases, result.stats)
+        if layout is not None and layout.status(row) == "Cabinet Alarm":
+            signal = replace(signal, is_alarm=True, cable_no=None, cable_size=None, pair_no=None, pair_text=None)
         status = (signal.status or "").casefold()
         if status == "deleted":
             result.deleted.append(signal)
@@ -202,6 +222,20 @@ def _read_table(sheet: str, rows: list[tuple[Any, ...]], mapping: dict[str, Colu
             result.alarms.append(signal)
         else:
             result.signals.append(signal)
+    if layout is None:
+        return
+    result.stats["allocation_input"] = 1
+    result.stats["rows_realigned"] = result.stats.get("rows_realigned", 0) + sum(len(v) for v in shifted.values())
+    result.stats["rows_misaligned"] = result.stats.get("rows_misaligned", 0) + len(broken)
+    kept = ", ".join(f"{n} {s}" for s, n in sorted(not_copied.items()))
+    log.add("ALLOCATION-AS-INPUT", f"sheet '{sheet}'" + (f"; not copied: {kept}" if kept else ""))
+    for (shift, moved_from), excel_rows in sorted(shifted.items()):
+        side = "right" if shift > 0 else "left"
+        cols = "one column" if abs(shift) == 1 else f"{abs(shift)} columns"
+        where = f" from '{moved_from}' on" if moved_from else ""
+        log.add("ROW-REALIGNED", f"sheet '{sheet}' rows {allocinput.rows_text(excel_rows)} ({cols} to the {side}{where})")
+    if broken:
+        log.add("ROW-MISALIGNED", f"sheet '{sheet}' rows {allocinput.rows_text(broken)}")
 
 
 # ------------------------------------------------------------------------ public API

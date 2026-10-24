@@ -8,7 +8,7 @@ import streamlit as st
 from io_sudoku.core.preflight import PreflightReport, preflight
 from io_sudoku.ui import ui_logic
 from io_sudoku.ui.state import on_sample
-from io_sudoku.ui.views._common import stale_banner
+from io_sudoku.ui.views._common import stale_banner, tq_table
 
 
 @st.cache_data(max_entries=8, show_spinner=False)
@@ -46,6 +46,6 @@ def render() -> None:
         st.info("No columns could be matched. Check the file on the Upload view.")
     st.subheader("Needs A Human")
     if report.issues:
-        st.dataframe(ui_logic.tq_rows(report.issues), hide_index=True, width="stretch")
+        tq_table(ui_logic.by_severity(report.issues))
     else:
         st.success("Nothing here needs a person. The file is ready to allocate.")

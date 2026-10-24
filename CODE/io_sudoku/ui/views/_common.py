@@ -8,6 +8,31 @@ import streamlit as st
 from io_sudoku.ui import state, theme, ui_logic
 
 
+def md_escape(text: str) -> str:
+    """Plain text for st.markdown: customer data must never be read as Markdown (HTML is already off)."""
+    return "".join("\\" + ch if ch in "\\`*_[]<>#|~" else ch for ch in str(text))
+
+
+def tq_table(tqs: list[Any]) -> None:
+    """The questions as a table, each row coloured by severity: red error, amber warning, blue info."""
+    import pandas as pd
+
+    frame = pd.DataFrame(ui_logic.tq_rows(tqs))
+    if frame.empty:
+        return
+    colours = [ui_logic.SEVERITY_COLOURS.get(t.severity, ("", "", "")) for t in tqs]
+
+    def paint(row: pd.Series) -> list[str]:
+        bg, fg, strong = colours[row.name]
+        if not bg:
+            return [""] * len(row)
+        return [f"background-color: {bg}; color: {strong if col == 'Severity' else fg}"
+                + ("; font-weight: 700" if col == "Severity" else "") for col in row.index]
+
+    st.dataframe(frame.style.apply(paint, axis=1), hide_index=True, width="stretch",
+                 height=min(560, 38 + 35 * len(frame)))
+
+
 def result_or_empty(what: str, key: str):
     """The current SolveResult, or None after showing the empty state (with the sample button)."""
     result = st.session_state["result"]
@@ -30,6 +55,12 @@ def readiness_block(result) -> None:
     st.markdown(theme.badge(status), unsafe_allow_html=True)
     if reasons:
         st.markdown("\n".join(f"- {r}" for r in reasons))
+    if status != "ISSUE-READY":
+        questions = ui_logic.blocking_questions(result)
+        if questions:
+            with st.expander("What needs fixing first", expanded=status == "BLOCKED"):
+                st.markdown("\n".join(f"- {md_escape(q)}" for q in questions))
+                st.caption("Every question, with a suggested fix, is on the TQ Board.")
 
 
 def download_button(spec: ui_logic.DownloadSpec, ctx: dict[str, Any], result_key: str, key_prefix: str = "dl") -> None:
