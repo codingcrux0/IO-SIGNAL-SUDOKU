@@ -177,15 +177,76 @@ def cabinet_grid_html(rows: list[dict[str, Any]], cabinet: str) -> str:
                 io = str(row.get("IO Type") or "-")
                 detail = f"{tag}, {kind}, {io}"
                 cable = str(row.get("Field Cable No") or "-")
+                pair = str(row.get("Field Cable Pair") or "-")
+                pair = pair if pair.lower().startswith("pair") else f"pair {pair}"      # the template says 'Pair 6'
                 if cable != "-":
-                    detail += f", cable {cable} pair {row.get('Field Cable Pair', '-')}"
+                    detail += f", cable {cable} {pair}"
                 label = f"Cabinet {cabinet}, CIOC {cioc}, baseplate {bp}, channel {ch}: {detail}"
+                tip = "\n".join([tag, f"{kind} \u00b7 {IO_SHORT.get(io, io)} \u00b7 {row.get('CHARM Type') or '-'}",
+                                  f"Cable {cable} \u00b7 {pair}" if cable != "-" else "No field cable",
+                                  f"CIOC {cioc} \u00b7 BP {bp} \u00b7 CH {ch} \u00b7 CHARM {row.get('CHARM_No') or '-'}"])
                 out.append(f'<i class="iosg-slot {css}" role="img" aria-label="{escape(label, quote=True)}" '
-                           f'title="{escape(label, quote=True)}">{escape(cue)}</i>')
+                           f'data-tip="{escape(tip, quote=True)}">{escape(cue)}</i>')
             out.append("</div>")
         out.append("</section>")
     out.append("</div>")
     return "".join(out)
+
+
+# The cabinet drawings are SVG, which st.html removes (it allows HTML only), so each drawing is shown as a
+# small page in an iframe.  The SVG comes from elevation.cabinet_svg, which escapes every value; the
+# script only turns each cell's <title> into an instant hover card.
+_DRAWING_PAGE = r"""<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><style>
+html,body{margin:0;background:#0d1117;color:#e6edf3;color-scheme:dark;
+font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+svg{display:block;max-width:100%;height:auto}
+g.cell:hover rect{stroke:#fff;stroke-width:2.5}
+#tip{position:fixed;display:none;pointer-events:none;white-space:pre;background:#0b0f14;color:#e6edf3;
+border:1px solid #58a6ff;border-radius:6px;padding:6px 9px;font-size:12px;line-height:1.45;z-index:9;
+box-shadow:0 6px 18px rgba(0,0,0,.55)}
+#tip b{font-weight:700}
+</style></head><body>@SVG@<div id="tip" role="tooltip"></div><script>
+(function () {
+  var tip = document.getElementById("tip");
+  document.querySelectorAll("g.cell").forEach(function (g) {
+    var t = g.querySelector("title");
+    if (!t) return;
+    var p = t.textContent.split(" \u00b7 ");
+    g.setAttribute("aria-label", t.textContent);
+    g.dataset.tag = p[0] || "-";
+    g.dataset.rest = [(p[1] || "-") + " \u00b7 " + (p[2] || "-"), "CHARM " + (p[3] || "-"),
+                      p[4] === "no cable" ? "No field cable" : "Cable " + (p[4] || "-")].join("\n");
+    t.remove();
+  });
+  function place(e) {
+    var x = e.clientX + 14, y = e.clientY + 14, w = tip.offsetWidth, h = tip.offsetHeight;
+    if (x + w > innerWidth - 4) x = e.clientX - w - 14;
+    if (y + h > innerHeight - 4) y = e.clientY - h - 14;
+    tip.style.left = Math.max(4, x) + "px";
+    tip.style.top = Math.max(4, y) + "px";
+  }
+  document.addEventListener("mouseover", function (e) {
+    var g = e.target.closest && e.target.closest("g.cell");
+    if (!g) { tip.style.display = "none"; return; }
+    tip.textContent = "";
+    var b = document.createElement("b");
+    b.textContent = g.dataset.tag;
+    tip.appendChild(b);
+    tip.appendChild(document.createTextNode("\n" + g.dataset.rest));
+    tip.style.display = "block";
+    place(e);
+  });
+  document.addEventListener("mousemove", function (e) { if (tip.style.display === "block") place(e); });
+  document.addEventListener("mouseleave", function () { tip.style.display = "none"; });
+})();
+</script></body></html>"""
+
+
+def drawing_page(svg: str) -> tuple[str, int]:
+    """(self-contained page, height in px) for one cabinet drawing, with instant hover cards."""
+    import re
+    match = re.search(r'<svg[^>]*\sheight="(\d+)"', svg)
+    return _DRAWING_PAGE.replace("@SVG@", svg), (int(match.group(1)) if match else 300) + 6
 
 
 @st.cache_data(max_entries=64, show_spinner=False)

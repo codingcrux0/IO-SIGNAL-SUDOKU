@@ -18,11 +18,9 @@ def render() -> None:
         return
     state.sync_url()
     st.markdown(theme.LEGEND_HTML, unsafe_allow_html=True)
-    front, rear = st.columns(2)
-    with front:
-        st.subheader("Front (CIOC 1–2)")
-        st.html(cabinet_svg(result.rows, cabinet, "F"))
-    with rear:
-        st.subheader("Rear (CIOC 3–4)")
-        st.html(cabinet_svg(result.rows, cabinet, "R"))
+    st.caption("Point at any slot to see its tag, IO type, CHARM and cable.")
+    for side, title in (("F", "Front (CIOC 1–2)"), ("R", "Rear (CIOC 3–4)")):
+        st.subheader(title)
+        page, height = ui_logic.drawing_page(cabinet_svg(result.rows, cabinet, side))
+        st.iframe(page, height=height)
     file_card(next(d for d in ui_logic.DOWNLOADS if d.key == "drawings"), main_ctx(), st.session_state["result_key"] or "", "draw")

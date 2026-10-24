@@ -2,7 +2,7 @@
 
 Follows the Web Interface Guidelines: color-scheme dark, visible :focus-visible rings, animation
 limited to opacity/transform and switched off for prefers-reduced-motion and Lite mode, tabular
-numbers, ellipsis truncation, content-visibility on the big grid."""
+numbers, ellipsis truncation.  Grid slots show an instant CSS hover card (no scripts)."""
 from __future__ import annotations
 
 import streamlit as st
@@ -39,13 +39,19 @@ cursor:pointer;border-radius:10px}
 .iosg-note{border-left:3px solid var(--accent);padding:.4rem .8rem;background:var(--panel);border-radius:0 8px 8px 0;
 overflow-wrap:anywhere}
 .iosg-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:.8rem;min-width:0}
-.iosg-cioc{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:.5rem .6rem;min-width:0;
-content-visibility:auto;contain-intrinsic-size:auto 330px}
+.iosg-cioc{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:.5rem .6rem;min-width:0}
 .iosg-cioc h4{margin:0 0 .35rem;font-size:.85rem;color:var(--muted)}
 .iosg-bp{display:flex;align-items:center;gap:2px;margin-bottom:2px;min-width:0}
 .iosg-bpn{width:1.1rem;font-size:.68rem;color:var(--muted);text-align:right;margin-right:3px;flex:none}
 .iosg-slot{display:flex;align-items:center;justify-content:center;flex:1 1 0;min-width:0;height:22px;border-radius:3px;
-font-size:.6rem;font-style:normal;font-weight:700;color:#0d1117;border:1px solid transparent;overflow:hidden}
+font-size:.6rem;font-style:normal;font-weight:700;color:#0d1117;border:1px solid transparent;position:relative;cursor:default}
+.iosg-slot:hover{outline:2px solid #fff;outline-offset:1px;z-index:5}
+.iosg-slot[data-tip]:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 8px);left:50%;
+transform:translateX(-50%);white-space:pre;background:#0b0f14;color:#e6edf3;border:1px solid var(--accent);border-radius:6px;
+padding:.4rem .6rem;font-size:.74rem;font-weight:500;line-height:1.4;text-align:left;z-index:30;pointer-events:none;
+box-shadow:0 6px 18px rgba(0,0,0,.55)}
+.iosg-bp .iosg-slot:nth-child(-n+5)::after{left:0;transform:none}
+.iosg-bp .iosg-slot:nth-child(n+10)::after{left:auto;right:0;transform:none}
 .s-none{background:#1b222c}
 .s-spare{background:transparent;border-color:#3b4452}
 .s-field{background:var(--c,#888)}

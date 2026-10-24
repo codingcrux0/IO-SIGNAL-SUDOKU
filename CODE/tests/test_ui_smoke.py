@@ -257,3 +257,12 @@ def test_approve_all_needs_the_checkbox():
     at.checkbox(key="approve_all_ok").check().run()
     at.button(key="approve_all").click().run()
     assert at.session_state["result"].readiness.status == "ISSUE-READY"
+
+
+def test_drawings_are_shown_in_frames():
+    at = run("Drawings", sample=True)
+    at.session_state["view"] = "Drawings"
+    at.run()
+    assert not at.exception, [e.value for e in at.exception]
+    frames = at.get("iframe")
+    assert len(frames) == 2

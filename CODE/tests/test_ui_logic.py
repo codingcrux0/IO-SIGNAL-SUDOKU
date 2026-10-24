@@ -110,3 +110,24 @@ def test_tqs_sort_errors_first_and_label_their_severity():
     assert [t.tq_id for t in ordered][:2] == ["BLANK-TAG", "MISSING-PAIR"]          # stable inside a group
     assert [r["Severity"] for r in ui_logic.tq_rows(ordered)] == ["● Error", "● Error", "▲ Warning", "ℹ Info", "ℹ Info"]
     assert set(ui_logic.SEVERITY_COLOURS) == {"error", "warning", "info"}
+
+
+def test_grid_slots_carry_an_instant_hover_card():
+    from io_sudoku.samples import load_sample_result
+    rows = load_sample_result().rows
+    cabinet = rows[0]["Electronic/ Marshalling Cabinet"]
+    html = ui_logic.cabinet_grid_html(rows, cabinet)
+    assert html.count("data-tip=") == 384 and "title=" not in html          # no slow native tooltip on top
+    assert "pair Pair" not in html and "CHARM" in html
+
+
+def test_drawing_page_keeps_the_svg_and_sizes_the_frame():
+    import re
+    from io_sudoku.core.elevation import cabinet_svg
+    from io_sudoku.samples import load_sample_result
+    rows = load_sample_result().rows
+    svg = cabinet_svg(rows, rows[0]["Electronic/ Marshalling Cabinet"], "F")
+    page, height = ui_logic.drawing_page(svg)
+    assert svg in page and "<script>" in page and height == int(re.search(r'height="(\d+)"', svg).group(1)) + 6
+    script = page[page.index("<script>"):]
+    assert '"\n"' not in script                                               # a raw newline inside a JS string breaks it
