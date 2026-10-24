@@ -20,6 +20,18 @@ python3 -m venv .venv
 
 Open the address Streamlit prints, press **Try With Sample Data**, and explore the views in the sidebar.
 
+Moving around and fixing things:
+
+- **Search bar** (top of every page): type a few letters to jump to any page, section, tag, cable or question;
+  the matching runs in your browser, and Enter on a misspelt word takes you to the closest match.
+- **Edit File**: change any cell of the uploaded file in the page. Every **✎ Edit** button (Upload, and each error
+  and warning on the TQ Board) opens this page at the exact cell and brings you back when you save. Changes are
+  listed, can be undone, and can be downloaded as the edited file.
+- **Allocate buttons** are blue when something changed and turn grey (**✓ Allocation Up To Date**) once the
+  allocation matches your current inputs. An out-of-date result is always shown as `DRAFT`.
+- **Revision → Revision History**: every allocation of the session is saved (Original, Revision 1, 2 ...), with a
+  summary; rename or delete them, and compare any two or more (Added / Deleted / Moved / Renamed).
+
 To see how the tool handles bad input, upload a file from `test_cases/`. The 21 files there are copies of the sample
 MDB with problems planted on purpose: messy formatting, tag, IO type, cable, pair, segregation and alarm errors, an
 oversized project, and files that cannot be read at all. `test_cases/README.md` lists what each one should show, and

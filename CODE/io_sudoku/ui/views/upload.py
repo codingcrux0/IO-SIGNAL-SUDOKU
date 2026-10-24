@@ -5,6 +5,7 @@ import streamlit as st
 
 from io_sudoku.core.columnmap import load_aliases, map_columns, missing_mandatory
 from io_sudoku.ui import state, ui_logic
+from io_sudoku.ui.views._common import allocate_button
 from io_sudoku.ui.views._viewer import file_viewer
 
 AUTO = "(Choose automatically)"
@@ -46,10 +47,15 @@ def render() -> None:
                 "alarms are allocated again by the rules, spares are rebuilt, and rows whose values slipped out of "
                 "their columns are repaired and listed as TQs. To keep the old positions instead, use it as Rev A on "
                 "the Revision view; to check it against the rules, use the Health view.")
-    st.button("Run Allocation", key="solve_upload", on_click=state.on_solve, type="primary")
+    allocate_button("solve_upload")
     if s["ui_error"]:
         st.error(s["ui_error"])
-    if st.toggle("Preview Your File", key="upload_view_input", help="See the rows and columns exactly as they were uploaded."):
+    if s["edit_log"]:
+        st.caption(f"Your file has {len(s['edit_log']):,} change(s) made on the Edit File page.")
+    left, right = st.columns([3, 2], vertical_alignment="center")
+    right.button("\u270e Edit Your File", key="upload_edit", on_click=state.open_editor, args=(None, "Upload"),
+                 help="Change any cell of the uploaded file in the page, without uploading it again.")
+    if left.toggle("Preview Your File", key="upload_view_input", help="See the rows and columns exactly as they were uploaded."):
         file_viewer(s["mdb_bytes"], s["mdb_name"] or "input.xlsx", f"upload_input_{(s['mdb_sha'] or '')[:8]}")
     _column_mapping()
 

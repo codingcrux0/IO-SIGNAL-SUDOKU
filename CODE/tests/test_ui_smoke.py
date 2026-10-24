@@ -83,8 +83,10 @@ def test_pin_and_stale_banner():
     cable = at.selectbox(key="pin_cable").options[0]
     next(b for b in at.button if b.label == "Add Pin").click().run()
     assert at.session_state["pins"] and at.session_state["stale"] and not at.exception
-    next(b for b in at.button if b.label == "Re-solve").click().run()
+    assert at.session_state["result"].readiness.status == "DRAFT"                     # out of date = draft
+    at.button(key="resolve_tq").click().run()
     assert not at.session_state["stale"] and cable in at.session_state["pins"]
+    assert at.button(key="reallocate_tq").disabled                                    # grey once up to date
 
 
 def test_simulator_runs_on_the_sample():
@@ -248,8 +250,16 @@ def test_warnings_must_be_signed_off_before_issue_ready():
     assert at.session_state["result"].readiness.status == "DRAFT"                     # a problem keeps it in draft
     [c for c in at.get("segmented_control")][1].set_value("✓ Approve").run()
     assert at.session_state["result"].readiness.status == "ISSUE-READY"
-    at.button(key="reallocate_tq").click().run()                                      # approvals survive a re-allocation
+    button = at.button(key="reallocate_tq")
+    assert button.disabled and button.label.endswith("Allocation Up To Date")          # grey: nothing changed
+    at.session_state["view"] = "Upload"
+    at.run()
+    at.text_input(key="rev_label").set_value("01").run()                              # a change makes it blue again
+    assert at.session_state["result"].readiness.status == "DRAFT"
+    assert not at.button(key="solve_upload").disabled and at.button(key="solve_upload").label == "Re-allocate"
+    at.button(key="solve_upload").click().run()                                       # approvals survive a re-allocation
     assert not at.exception and at.session_state["result"].readiness.status == "ISSUE-READY"
+    assert at.button(key="solve_upload").disabled
 
 
 def test_approve_all_needs_the_checkbox():
@@ -292,3 +302,96 @@ def test_old_grid_and_drawings_links_open_cabinet_layout():
         at.run()
         assert not at.exception and at.session_state["view"] == "Cabinet Layout"
         assert at.session_state["cab_tab"] == tab
+
+
+def test_edit_button_on_an_error_fixes_the_cell_and_comes_back():
+    from io_sudoku.samples import case_bytes
+    at = AppTest.from_file(APP, default_timeout=60)
+    at.run()
+    _load(at, case_bytes("09_cable_and_pair_errors.xlsx"), "09.xlsx")
+    at.run()
+    at.button(key="solve_upload").click().run()
+    at.session_state["view"] = "TQ Board"
+    at.run()
+    labels = [m.value for m in at.markdown if "PAIR-BEYOND-CABLE" in m.value]
+    assert labels
+    errors = [t for t in at.session_state["result"].tqs if t.severity == "error"]
+    i = next(n for n, t in enumerate(errors) if t.tq_id == "PAIR-BEYOND-CABLE")
+    at.button(key=f"edit_err_0_{i}").click().run()
+    assert at.session_state["view"] == "Edit File" and at.session_state["edit_target"].col is not None
+    box = next(t for t in at.text_input if t.label.startswith("New value for"))
+    assert box.value == "Pair 30"
+    box.set_value("Pair 20").run()
+    at.button(key="jump_save").click().run()
+    assert not at.exception, [e.value for e in at.exception]
+    assert at.session_state["view"] == "TQ Board" and len(at.session_state["edit_log"]) == 1
+    assert at.session_state["stale"] and at.session_state["result"].readiness.status == "DRAFT"
+    assert not at.button(key="resolve_tq").disabled and at.button(key="resolve_tq").label == "Re-allocate"
+    at.button(key="resolve_tq").click().run()
+    assert not any(t.tq_id == "PAIR-BEYOND-CABLE" for t in at.session_state["result"].tqs)
+    assert at.button(key="reallocate_tq").disabled
+
+
+def test_upload_edit_button_opens_the_editor_and_back():
+    at = run("Upload", sample=True)
+    at.button(key="upload_edit").click().run()
+    assert at.session_state["view"] == "Edit File" and not at.exception
+    at.text_input(key="edit_search").set_value("320-FT   -20645-A").run()
+    assert not at.exception and at.get("arrow_data_frame") is not None
+    at.button(key="edit_back").click().run()
+    assert at.session_state["view"] == "Upload"
+
+
+def test_every_run_is_kept_in_the_revision_history():
+    at = run("Upload", sample=True)
+    at.text_input(key="rev_label").set_value("01").run()
+    at.button(key="solve_upload").click().run()
+    assert [s.name for s in at.session_state["history"]] == ["Original", "Revision 1"]
+    at.session_state["view"] = "Revision"
+    at.session_state["rev_tab"] = "Revision History"
+    at.run()
+    assert not at.exception, [e.value for e in at.exception]
+    assert any(s.label.startswith("Saved Revisions") for s in at.selectbox)
+    assert any(m.label.startswith("Revisions To Compare") for m in at.multiselect)
+
+
+def test_search_bar_jumps_to_a_section_and_a_tag():
+    at = run("Upload", sample=True)
+    at.selectbox(key="global_search").set_value("TQ Board › Sign Off The Warnings").run()
+    assert at.session_state["view"] == "TQ Board" and at.session_state["global_search"] is None
+    assert not at.exception
+    tag = next(r["Tag Name"] for r in at.session_state["result"].rows if r.get("Tag Status") == "Field")
+    label = next(o for o in at.selectbox(key="global_search").options if o.startswith(f"Tag {tag} "))
+    at.selectbox(key="global_search").set_value(label).run()
+    assert at.session_state["view"] == "Cabinet Layout" and at.session_state["why_tag"] == tag
+    assert not at.exception, [e.value for e in at.exception]
+
+
+def test_edit_file_is_greyed_out_until_a_file_is_uploaded():
+    at = AppTest.from_file(APP, default_timeout=60)
+    at.session_state["view"] = "Edit File"
+    at.run()
+    assert at.session_state["view"] == "Upload" and not at.exception                  # no file: sent back
+    assert any("radiogroup" in m.value for m in at.markdown)                           # and greyed in the sidebar
+    next(b for b in at.button if b.label == "Try With Sample Data").click().run()
+    at.session_state["view"] = "Edit File"
+    at.run()
+    assert at.session_state["view"] == "Edit File"
+    assert not any("radiogroup" in m.value for m in at.markdown)
+
+
+def test_errors_and_warnings_share_one_signoff_box():
+    from io_sudoku.samples import case_bytes
+    at = AppTest.from_file(APP, default_timeout=60)
+    at.run()
+    _load(at, case_bytes("13_everything_wrong.xlsx"), "13.xlsx")
+    at.run()
+    at.button(key="solve_upload").click().run()
+    at.session_state["view"] = "TQ Board"
+    at.run()
+    heads = [h.value for h in at.subheader]
+    assert "Sign Off The Warnings" in heads and "Fix The Errors" not in heads
+    assert any(b.key and b.key.startswith("edit_err_") for b in at.button)
+    assert any(b.key and b.key.startswith("edit_warn_") for b in at.button)
+    assert len(at.get("segmented_control")) == len({(t.tq_id, t.ref) for t in at.session_state["result"].tqs
+                                                    if t.severity == "warning"})

@@ -5,7 +5,7 @@ import streamlit as st
 
 from io_sudoku.core.selftest import SelfTestReport, run_selftest
 from io_sudoku.ui import state, theme, ui_logic
-from io_sudoku.ui.views._common import readiness_block, stale_banner
+from io_sudoku.ui.views._common import allocate_button, readiness_block, stale_banner
 
 
 @st.cache_resource(show_spinner=False)
@@ -38,8 +38,7 @@ def render() -> None:
         st.info("Upload an MDB on the Upload view, or load the sample data, first.")
         st.button("Try With Sample Data", key="sample_solve", on_click=state.on_sample)
     else:
-        st.button("Run Allocation", key="solve_main", on_click=state.on_solve, type="primary",
-                  help="Solves on demand. Nothing recomputes until you press this.")
+        allocate_button("solve_main")
     if s["ui_error"]:
         st.error(s["ui_error"])
     report = _selftest()
@@ -61,7 +60,7 @@ def render() -> None:
     st.subheader("Wired Spares Per Controller", anchor=ui_logic.SPARES_ANCHOR)
     st.dataframe([{"Controller": l.controller, "IO Type": l.io_type, "Field": l.field, "Required": l.quota,
                    "Wired": l.wired, "Short": l.shortfall} for l in result.spare_lines], hide_index=True, width="stretch")
-    with st.expander("Assumptions Used In This Run"):
+    with st.expander("Assumptions Used In This Run"), st.container(height=320):
         for a in result.assumptions:
             st.markdown(f"**{a.id}** — {a.text}  \n*Source: {a.source}. Confirm with: {a.confirm_by}.*")
     with st.expander("Stage Timings"):

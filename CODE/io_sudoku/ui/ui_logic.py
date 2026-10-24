@@ -86,6 +86,34 @@ def sha256_hex(data: bytes | str) -> str:
     return hashlib.sha256(data.encode("utf-8") if isinstance(data, str) else data).hexdigest()
 
 
+# --------------------------------------------------------------------------- revision history
+@st.cache_data(max_entries=32, show_spinner=False)
+def compare_snapshots(id_a: int, sha_a: str, id_b: int, sha_b: str, _a, _b):
+    """Changes between two saved revisions (cached: the same pair is never compared twice)."""
+    from io_sudoku.ui.history import compare_snapshots as run
+    return run(_a, _b)
+
+
+# --------------------------------------------------------------------------- editing the input
+@st.cache_data(max_entries=4, show_spinner=False)
+def editable_sheets(mdb_bytes: bytes) -> list:
+    """The uploaded file as editable tables (cached per file version, so searching is instant)."""
+    from io_sudoku.ui.editing import read_editable
+    return read_editable(mdb_bytes)
+
+
+@st.cache_data(max_entries=4, show_spinner=False)
+def edit_index(mdb_bytes: bytes, column_text: str, pack_text: str):
+    """Where each tag, cable and room is in the file (used by the Edit buttons of the TQ Board)."""
+    from io_sudoku.core.rulepack import pack_from_dict
+    from io_sudoku.ui.editing import build_index
+    try:
+        aliases = config_for_pack(pack_from_dict(json.loads(pack_text))).rules.io_aliases
+    except Exception:  # noqa: BLE001
+        aliases = None
+    return build_index(mdb_bytes, json.loads(column_text or "{}"), aliases)
+
+
 # --------------------------------------------------------------------------- column headers
 def list_headers(mdb_bytes: bytes) -> list[str]:
     """Header texts of the sheet the solver would read first (for the column-mapping dropdowns)."""

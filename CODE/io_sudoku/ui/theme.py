@@ -71,6 +71,7 @@ padding:.6rem .9rem;min-width:0}
 .sev-error{--c:var(--bad)}.sev-warning{--c:var(--warn)}.sev-info{--c:var(--accent)}
 [data-testid="stSidebar"]{border-right:1px solid var(--line)}
 iframe[data-testid=stIFrame]{background:#fff;border-radius:8px;color-scheme:light}
+[data-testid=stSidebar] iframe[data-testid=stIFrame]{opacity:0;pointer-events:none}
 .iosg-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .iosg-skip{position:absolute;left:-999px;top:0;background:var(--accent);color:#0d1117;padding:.4rem .8rem;border-radius:0 0 8px 0;z-index:9999}
 .iosg-skip:focus{left:0}
@@ -97,6 +98,12 @@ def kpi_html(cards: list[tuple[str, str]]) -> str:
     from html import escape
     return '<div class="iosg-kpis">' + "".join(
         f'<div class="iosg-kpi"><span title="{escape(k)}">{escape(k)}</span><b>{escape(v)}</b></div>' for k, v in cards) + "</div>"
+
+
+def disabled_views_css(positions: list[int]) -> str:
+    """Grey out sidebar views (0-based positions in the view list) and make them unclickable."""
+    rules = ",".join(f'[data-testid="stSidebar"] [role="radiogroup"] > :nth-child({i + 1})' for i in positions)
+    return (f"<style>{rules}{{opacity:.35;pointer-events:none;cursor:not-allowed}}</style>" if rules else "")
 
 
 def kpi_card_html(label: str, value: str, hint: str, href: str | None = None) -> str:

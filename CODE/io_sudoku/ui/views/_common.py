@@ -58,8 +58,24 @@ def result_or_empty(what: str, key: str):
 
 def stale_banner(key: str) -> None:
     if st.session_state.get("stale"):
-        st.warning("Your inputs changed after the last solve, so these results are out of date.")
-        st.button("Re-solve", key=f"resolve_{key}", on_click=state.on_solve, type="primary")
+        st.warning("Your inputs changed after the last allocation (for example the file was edited), so these "
+                   "results are out of date and marked DRAFT. Press Re-allocate to check them.")
+        allocate_button(f"resolve_{key}")
+
+
+def allocate_button(key: str) -> None:
+    """THE allocate button, used everywhere.  Blue when something changed (or nothing was run yet);
+    grey and disabled once the allocation matches the current inputs, so nobody presses it twice."""
+    s = st.session_state
+    if not s["mdb_bytes"]:
+        st.button("Run Allocation", key=key, disabled=True, help="Upload an MDB or load the sample data first.")
+    elif state.is_up_to_date():
+        st.button("\u2713 Allocation Up To Date", key=key, disabled=True,
+                  help="Nothing changed since the last allocation. Edit the file, answer a question, pin a cable "
+                       "or change a rule, and this button turns blue again.")
+    else:
+        st.button("Re-allocate" if s["result"] is not None else "Run Allocation", key=key, type="primary",
+                  on_click=state.on_solve, help="Runs the allocation with your current file, answers, pins and rules.")
 
 
 def readiness_block(result) -> None:

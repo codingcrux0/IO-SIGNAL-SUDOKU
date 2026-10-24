@@ -63,6 +63,7 @@ def _why_here(cabinet: str) -> None:
         return
     lines = explain(result, query)
     if lines:
-        st.markdown("\n".join(f"{n}. {line}" for n, line in enumerate(lines, start=1)))
+        with st.container(height=360) if len(lines) > 8 else st.container():      # a scroll box for long traces
+            st.markdown("\n".join(f"{n}. {line}" for n, line in enumerate(lines, start=1)))
     else:
         st.info(f"No decisions were recorded for “{query}”. Check the spelling, or try the cable number.")
