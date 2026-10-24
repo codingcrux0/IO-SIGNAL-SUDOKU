@@ -1,0 +1,39 @@
+"""The official sample files, bundled so the tool and its demo run completely offline.
+
+  sample_mdb_bytes()         the Customer IO MDB (190 data rows)
+  sample_allocation_bytes()  the hand-made allocation (1152 rows) - used for the Human vs Tool audit
+  load_sample_result()       the solved sample (computed once, then remembered)
+  golden_hash()              the SHA-256 the solved sample must always produce (the self-test checks it)
+"""
+from __future__ import annotations
+
+from functools import lru_cache
+from pathlib import Path
+
+DATA_DIR = Path(__file__).resolve().parent / "data" / "sample"
+GOLDEN_PATH = DATA_DIR / "golden_output.sha256"
+
+
+def sample_mdb_bytes() -> bytes:
+    return (DATA_DIR / "sample_mdb.xlsx").read_bytes()
+
+
+def sample_allocation_bytes() -> bytes:
+    return (DATA_DIR / "sample_allocation.xlsx").read_bytes()
+
+
+@lru_cache(maxsize=1)
+def load_sample_result():
+    """Solve the bundled sample MDB (cached: it is deterministic, so the answer never changes)."""
+    from io_sudoku.core.pipeline import solve
+
+    return solve(sample_mdb_bytes())
+
+
+def golden_hash() -> str | None:
+    """The recorded fingerprint of the solved sample, or None if the file is missing."""
+    try:
+        text = GOLDEN_PATH.read_text(encoding="utf-8").strip()
+        return text or None
+    except Exception:
+        return None

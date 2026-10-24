@@ -1,0 +1,8 @@
+{
+  "name": "VIT-2026",
+  "version": 1,
+  "parent": null,
+  "params": {"spare_pct": 10, "future_pct": 10, "end_reserve_bps": 4, "empty_bp_min": 3},
+  "overrides": {},
+  "read_only": true
+}

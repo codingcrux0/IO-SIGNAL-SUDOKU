@@ -1,0 +1,10 @@
+{
+  "cabinets": [
+    {"marshalling": "P30-DCM-32001-01", "system": "P30-DCS-32001-01", "controller": "P30DPK320101",
+     "tech_room": "PIB-30", "loc": "P30", "area5": "32001", "unit": 320, "cabinet_seq": 1, "ctrl_seq": 1},
+    {"marshalling": "P30-DCM-32001-04", "system": "P30-DCS-32001-02", "controller": "P30DPK320102",
+     "tech_room": "PIB-30", "loc": "P30", "area5": "32001", "unit": 320, "cabinet_seq": 4, "ctrl_seq": 2},
+    {"marshalling": "P24-DCM-50002-01", "system": "P24-DCS-50002-01", "controller": "P24DPK500201",
+     "tech_room": "PIB-24", "loc": "P24", "area5": "50002", "unit": 500, "cabinet_seq": 1, "ctrl_seq": 1}
+  ]
+}

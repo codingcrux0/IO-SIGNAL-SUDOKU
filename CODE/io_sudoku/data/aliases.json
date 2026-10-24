@@ -1,0 +1,98 @@
+{
+  "tag": [
+    "Tag Number",
+    "Tag No",
+    "Tag Name"
+  ],
+  "tag_compact": [
+    "TagNumber",
+    "System Tag Name"
+  ],
+  "io_type": [
+    "I/O Type Name",
+    "IO Type"
+  ],
+  "io_type2": [
+    "I/O Type Name 2"
+  ],
+  "tech_room": [
+    "Technical Room (Signal Location 2)",
+    "Technical Room"
+  ],
+  "operating_area": [
+    "OA No.",
+    "Operating Area"
+  ],
+  "risk_area": [
+    "Design Area",
+    "Risk Area"
+  ],
+  "unit": [
+    "WBS",
+    "Unit"
+  ],
+  "segregation": [
+    "IO Grouping",
+    "Segregation"
+  ],
+  "service": [
+    "Tag Service 1 and 2",
+    "Service Description",
+    "Service"
+  ],
+  "location": [
+    "Location"
+  ],
+  "signal_type": [
+    "Signal Type"
+  ],
+  "signal_level": [
+    "Signal Level"
+  ],
+  "execution": [
+    "Execution",
+    "NON-IS / IS"
+  ],
+  "ext_power": [
+    "External Power Supply",
+    "External Power"
+  ],
+  "equipment": [
+    "Equipment Name"
+  ],
+  "cable_no": [
+    "Multipair Cable No.",
+    "Field Cable No"
+  ],
+  "cable_size": [
+    "Multi-cable / Cable",
+    "Field Cable Size"
+  ],
+  "pair_no": [
+    "Pair Number",
+    "Field Cable Pair"
+  ],
+  "logic_no": [
+    "Logic Number"
+  ],
+  "instrument_type": [
+    "Instrument Type Description",
+    "Instrument type"
+  ],
+  "instrument_code": [
+    "Instrument Type"
+  ],
+  "loop_name": [
+    "Loop Name"
+  ],
+  "old_tag": [
+    "Old Tag Number",
+    "Old Tag"
+  ],
+  "system2": [
+    "System 2"
+  ],
+  "status": [
+    "Status"
+  ]
+}

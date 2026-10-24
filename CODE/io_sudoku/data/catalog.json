@@ -1,0 +1,35 @@
+{
+  "profiles": {
+    "AIR_2W": {"charm_type": "SE4303T01", "charm_desc": "AI 4-20 MA HART CHARM", "tb_part": "SE4501",
+               "tb_desc": "Standard CHARM Terminal Block", "tb": [1, 2, null], "hw_loop": "HW-TYP-41 - LT-01",
+               "signal_type": "4-20 ma HART", "signal_level": "2-Wire"},
+    "AIR_4W": {"charm_type": "SE4303T01", "charm_desc": "AI 4-20 MA HART CHARM", "tb_part": "SE4501",
+               "tb_desc": "Standard CHARM Terminal Block", "tb": [null, 2, 4], "hw_loop": "HW-TYP-41 - LT-02B",
+               "signal_type": "4-20 ma HART", "signal_level": "4-Wire"},
+    "AIR_RTD": {"charm_type": "SE4303T03", "charm_desc": "RTD Input Charm", "tb_part": "SE4501",
+                "tb_desc": "Standard CHARM Terminal Block", "tb": [1, 2, 4], "hw_loop": "SA-AMI-530-4EME-000041 - LT-03",
+                "signal_type": "RTD", "signal_level": "3-Wire"},
+    "AOR": {"charm_type": "SE4304T01", "charm_desc": "AO 4-20 MA HART CHARM", "tb_part": "SE4501",
+            "tb_desc": "Standard CHARM Terminal Block", "tb": [1, 2, null], "hw_loop": "HW-TYP-41 - LT-04",
+            "signal_type": "4-20 ma HART", "signal_level": "2-Wire"},
+    "DIR": {"charm_type": "SE4301T02", "charm_desc": "DISCRETE INPUT CHARM; 24 VDC DRY CONTACT: LOW SIDE SENSE", "tb_part": "SE4501",
+            "tb_desc": "Standard CHARM Terminal Block", "tb": [1, 2, null], "hw_loop": "HW-TYP-41 - LT-05",
+            "signal_type": "-", "signal_level": "Voltfree-contact"},
+    "DOR_T01": {"charm_type": "SE4302T01", "charm_desc": "DISCRETE OUTPUT CHARM; 24 VDC; HIGH SIDE", "tb_part": "SE4501",
+                "tb_desc": "Standard CHARM Terminal Block", "tb": [1, 2, null], "hw_loop": "HW-TYP-41 - LT-07",
+                "signal_type": "-", "signal_level": "Volt-contact"},
+    "DOR_T02": {"charm_type": "SE4302T02", "charm_desc": "DO 24V DC Isolated", "tb_part": "SE4502",
+                "tb_desc": "Fused-Injected-Power Terminal Block", "tb": [null, 2, 4], "hw_loop": "HW-TYP-41 - LT-08A",
+                "signal_type": "-", "signal_level": "Volt-contact"}
+  },
+  "alarm": {
+    "T": {"profile": "AIR_RTD"},
+    "AC": {"profile": "DIR", "hw_loop_internal": "SA-AMI-530-4EME-000029 SH.16", "hw_loop_ice": "SA-AMI-530-4EME-000041 - LT-05"},
+    "DC": {"profile": "DIR", "hw_loop_internal": "SA-AMI-530-4EME-000029 SH.16", "hw_loop_ice": "SA-AMI-530-4EME-000041 - LT-05"}
+  },
+  "spare_slot": {"charm_type": "SE6103", "charm_desc": "CHARM PROTECTION COVER"},
+  "terminal_blocks": {
+    "SE4501": "Standard CHARM Terminal Block",
+    "SE4502": "Fused-Injected-Power Terminal Block"
+  }
+}
