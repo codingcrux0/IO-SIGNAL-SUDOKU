@@ -97,7 +97,19 @@ button[aria-label=Help]:hover::after{color:var(--accent)}
 .iosg-log{font-size:.84rem;line-height:1.55}
 .iosg-log div{padding:.12rem 0;border-bottom:1px solid #21262d}
 .iosg-log .iosg-rule{display:inline-block;min-width:5.6rem;color:var(--muted);font:600 .72rem/1 ui-monospace,Menlo,monospace}
-.st-key-assistant_box{background:#10161f}
+[data-testid=stMain]{transition:padding-right .26s cubic-bezier(.2,.8,.2,1)}
+[data-testid=stHeader]{transition:width .26s cubic-bezier(.2,.8,.2,1)}
+@keyframes iosg-drawer-in{from{transform:translateX(100%);opacity:.6}to{transform:none;opacity:1}}
+.st-key-helpdesk_launcher{position:fixed!important;right:28px;bottom:76px;z-index:1000040;width:auto!important}
+.st-key-helpdesk_launcher button{border-radius:999px!important;padding:.55rem 1.15rem!important;background:var(--accent)!important;
+color:#0d1117!important;font-weight:700;border:0!important;box-shadow:0 8px 24px rgba(0,0,0,.45)}
+.st-key-helpdesk_launcher button:hover{filter:brightness(1.08);transform:translateY(-1px)}
+.st-key-helpdesk_head{border-bottom:1px solid var(--line);padding-bottom:.5rem;margin-bottom:.2rem}
+.st-key-helpdesk_head [data-testid=stMarkdownContainer]{flex:1 1 auto}
+.st-key-helpdesk_head button{min-height:2rem;padding:0 .6rem}
+.st-key-helpdesk_log{border:1px solid var(--line);border-radius:10px;background:#0b1016}
+.st-key-helpdesk_log [data-testid=stChatMessage]{padding:.35rem .4rem;font-size:.9rem}
+.st-key-helpdesk_quick button{font-size:.8rem;padding:.2rem .65rem;min-height:1.9rem;border-radius:999px}
 [class*="st-key-confirm_"]{border-color:var(--warn)!important;background:#1f1a0e}
 a[href^="#go-"]{color:var(--accent)!important;text-decoration:underline dotted;text-underline-offset:3px;cursor:pointer}
 a[href^="#go-"]:hover{text-decoration-style:solid}

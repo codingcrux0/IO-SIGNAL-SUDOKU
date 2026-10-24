@@ -32,8 +32,6 @@ def main() -> None:
             from io_sudoku.ui import ui_logic
             status, _ = ui_logic.readiness_text(st.session_state["result"])
             st.markdown(theme.badge(status), unsafe_allow_html=True)
-        with error_boundary("The suggestion assistant"):
-            assistant.render_sidebar()
         st.divider()
         st.checkbox("I understand this clears everything", key="confirm_reset")
         st.button("Reset Session", on_click=state.reset_session, disabled=not st.session_state["confirm_reset"])
@@ -55,6 +53,8 @@ def main() -> None:
         st.session_state["_scroll_n"] = st.session_state.get("_scroll_n", 0) + 1
         with st.sidebar:                         # an invisible 1-pixel frame, out of the page's way
             st.iframe(search.scroll_page(target, st.session_state["_scroll_n"]), height=1)
+    with error_boundary("The Helpdesk"):
+        assistant.render()                       # the Help button, or the open chat panel on the right
     state.flush_flash()                          # a message for a section that was not drawn: a small toast
     state.sync_url()
 

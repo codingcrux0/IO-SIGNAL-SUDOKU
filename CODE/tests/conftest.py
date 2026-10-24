@@ -51,3 +51,9 @@ def cfg():
     """A FRESH default configuration (the planner may append auto-added cabinets)."""
     from io_sudoku.core.config import load_config
     return load_config()
+
+
+@pytest.fixture(autouse=True)
+def _no_real_ai(monkeypatch):
+    """Tests never call a real AI service, even on a machine whose .streamlit/secrets.toml holds a key."""
+    monkeypatch.setenv("IO_SUDOKU_AI_OFF", "1")

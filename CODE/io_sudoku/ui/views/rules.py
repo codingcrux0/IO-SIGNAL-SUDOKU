@@ -101,7 +101,15 @@ def _propose(template: str) -> None:
 
 
 def _client():
-    return advisor.default_client(state.secret("ANTHROPIC_API_KEY"))
+    """The rule-drafting AI: Gemini when its key is set (the Helpdesk's model), else Claude, else None."""
+    from io_sudoku.core.helpdesk import GeminiClient
+    gemini = state.secret("GEMINI_API_KEY")
+    return GeminiClient(gemini) if gemini else advisor.default_client(state.secret("ANTHROPIC_API_KEY"))
+
+
+def _open_helpdesk() -> None:
+    from io_sudoku.ui.views import assistant
+    assistant.open_chat({"kind": "rule"})
 
 
 def _draft_ai() -> None:
@@ -397,7 +405,10 @@ def _ai_box() -> None:
         st.caption("The AI assistant is switched off because no API key is set. The form above works without it.")
     st.text_area("Describe The Rule You Want", key="ai_request", max_chars=advisor.MAX_REQUEST_CHARS, disabled=not configured,
                  placeholder="For example: treat PSV valves as high-current loads…")
-    st.button("Draft Rule With AI", key="ai_draft", on_click=_draft_ai, disabled=not configured)
+    with st.container(horizontal=True, gap="small"):
+        st.button("Draft Rule With AI", key="ai_draft", on_click=_draft_ai, disabled=not configured)
+        st.button("\U0001F4AC Talk It Through With The Helpdesk", key="rules_helpdesk", on_click=_open_helpdesk,
+                  help="Opens the Helpdesk on the right to discuss which rule you need and how to word it.")
 
 
 def _pack_files() -> None:

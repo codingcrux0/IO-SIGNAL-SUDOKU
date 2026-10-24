@@ -11,13 +11,15 @@ Everything lives in this folder, so hosting is: install, run `streamlit run app.
 
    ```toml
    APPROVER_PASSCODE = "choose-a-long-phrase"     # enables rule approval on the Rules view
-   ANTHROPIC_API_KEY = "sk-ant-..."               # enables the optional AI drafting box
+   GEMINI_API_KEY = "your-gemini-key"             # switches on the Helpdesk chat and AI rule drafting
    ```
-   Add `anthropic>=1.0` to `requirements.txt` only if you set the AI key.
+   The Helpdesk needs no extra package (it uses the Python standard library). Optionally,
+   `ANTHROPIC_API_KEY` instead drafts rules with Claude (then add `anthropic>=1.0` to `requirements.txt`).
 4. Deploy. The sidebar shows a green **Self-test passed** badge on the Solve view when the install is healthy.
 
-Without the passcode, rule approval is switched off (rules can still be proposed). Without the API key the AI box
-is greyed out; nothing else changes.
+Without the passcode, rule approval is switched off (rules can still be proposed). Without an AI key the Helpdesk
+says it is not set up and the AI drafting box is greyed out; nothing else changes. Never commit a key: locally it
+lives in `.streamlit/secrets.toml`, which git ignores.
 
 ## Any server or laptop
 

@@ -508,8 +508,14 @@ def flush_flash() -> None:
         st.toast(pending[1], icon=icon)
 
 
+AI_KEYS = ("GEMINI_API_KEY", "ANTHROPIC_API_KEY")
+
+
 def secret(name: str) -> str | None:
-    """A deployment secret (Streamlit secrets, then environment); None when it is not configured."""
+    """A deployment secret (Streamlit secrets, then environment); None when it is not configured.
+    IO_SUDOKU_AI_OFF=1 hides the AI keys (the test suite sets it, so tests never call a real AI)."""
+    if name in AI_KEYS and os.environ.get("IO_SUDOKU_AI_OFF"):
+        return None
     try:
         value = st.secrets.get(name)
     except Exception:  # noqa: BLE001 - no secrets file is normal on a laptop

@@ -40,10 +40,17 @@ Moving around and fixing things:
 - **TQ Board**: filter the sign-off box (Errors, Waiting, Signed Off, Problem) and the question list (coloured
   Error / Warning / Info buttons), with classic page buttons `‹ 1 2 3 … 9 ›` (press **…** to type a page). The **▸**
   next to a question shows its suggested fix: write your own suggestion (kept in the workspace for the next person)
-  or send it for approval, or talk it through in the **Suggestion Assistant** in the sidebar. The assistant's AI is
-  not connected yet; when it is, it may only discuss and reword the suggestion and can never change a file, rule or
-  code. **Answer A Question** picks the tag from a list and then asks you to **verify** the answer: the tool
+  or send it for approval, or talk it through with the **Helpdesk**. **Answer A Question** picks the tag from a list and then asks you to **verify** the answer: the tool
   re-allocates and says whether the question is really cleared (if not, an `ANSWER-UNRESOLVED` warning is raised).
+- **Helpdesk** (the round **💬 Help** button at the bottom right of every page): a customer-support chat that slides
+  in on the right; the page shrinks to make room and goes back when you close it. It explains pages, questions and
+  rules, suggests how to fix a problem, and words suggestions and rules (it can also turn a request into a rule
+  *proposal*, which still needs another person's approval). It runs on Google Gemini, tries the best Pro model first
+  and falls back to the best model your key allows. It gives advice in words only: it has no tools, cannot change
+  the file, the allocation, the rules or any code, never writes code, images or files, stays on this project, and its
+  formal, family-friendly personality is fixed in `io_sudoku/core/helpdesk.py`. It sees a short summary of the page,
+  never your whole file. To switch it on, add the secret `GEMINI_API_KEY` (locally in `.streamlit/secrets.toml`,
+  which git ignores; on Streamlit Cloud under **Settings → Secrets**).
 - **Rule Check**: pick any cells (or click a slot or drawing cell on Cabinet Layout) and see a live log of every rule
   and constraint that applies to each: ✓ met, ✗ broken, ▲ to check, plus answers, pins and the solver's decisions.
   Point at **Signal Path** for the way from the field device to the controller.

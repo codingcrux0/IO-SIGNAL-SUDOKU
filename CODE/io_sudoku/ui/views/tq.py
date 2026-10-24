@@ -179,7 +179,7 @@ def _details(result, kind: str, ref: str, text: str) -> str:
 # ------------------------------------------------------------------ the suggested fix and your own suggestion
 def _fix_panel(result, kind: str, ref: str, tq_key: str) -> None:
     """Under a row: the tool's suggested fix, then two options - write your own suggestion (kept with the
-    project for the next person), or talk it through with the assistant in the sidebar."""
+    project for the next person), or talk it through with the Helpdesk in the panel on the right."""
     s = st.session_state
     h = ui_logic.sha256_hex(tq_key)[:10]
     with st.container(border=True, key=f"fixpanel_{h}"):
@@ -193,7 +193,7 @@ def _fix_panel(result, kind: str, ref: str, tq_key: str) -> None:
             elif sg.status == "pending":
                 st.caption(f"Waiting for approval on the {link('Rules', 'Rules', 'Review Queue')} page: "
                            f"“{md_escape(sg.text)}” by {md_escape(sg.author)}.")
-        own, chat = st.tabs(["\U0001F4DD Write Your Own Suggestion", "\U0001F4AC Talk It Through With The Assistant"])
+        own, chat = st.tabs(["\U0001F4DD Write Your Own Suggestion", "\U0001F4AC Talk It Through With The Helpdesk"])
         note = s["tq_notes"].get(tq_key) or {}
         with own:
             st.text_area("Your Suggestion", value=note.get("text", ""), key=f"note_text_{h}", max_chars=1000,
@@ -209,9 +209,9 @@ def _fix_panel(result, kind: str, ref: str, tq_key: str) -> None:
             if note.get("text"):
                 st.caption(f"Saved note by {md_escape(note.get('by') or 'unnamed')} at {note.get('time', '')}.")
         with chat:
-            st.caption("Opens a chat box in the sidebar where you can test your suggestion and get it worded better. "
-                       "The assistant only helps with words: it cannot change any file, rule or code.")
-            st.button("Open The Assistant", key=f"chat_open_{h}", on_click=_open_chat, args=(kind, ref, fix, h))
+            st.caption("Opens the Helpdesk on the right: ask why this question was raised, how to fix it, or get your "
+                       "suggestion worded better. It gives advice only: it cannot change any file, rule or code.")
+            st.button("Open The Helpdesk", key=f"chat_open_{h}", on_click=_open_chat, args=(kind, ref, fix, h))
 
 
 def _now() -> str:
@@ -244,9 +244,13 @@ def _send_note(kind: str, ref: str, h: str) -> None:
 
 
 def _open_chat(kind: str, ref: str, fix: str, h: str) -> None:
+    from io_sudoku.ui.views import assistant
     s = st.session_state
     note = (s.get(f"note_text_{h}") or "").strip()
-    s["chat"] = {"tq_key": f"{kind}|{ref}", "tq_id": kind, "ref": ref, "fix": fix, "messages": []}
+    result = s["result"]
+    question = next((t.message for t in (result.tqs if result is not None else []) if t.tq_id == kind and str(t.ref) == str(ref)), "")
+    assistant.open_chat({"kind": "tq", "tq_key": f"{kind}|{ref}", "tq_id": kind, "ref": ref, "fix": fix,
+                         "question": question, "note": note})
     s["assistant_final"] = note or fix
 
 

@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 PKG = ROOT / "io_sudoku"
-FORBIDDEN = ("anthropic", "io_sudoku.core.advisor")
+FORBIDDEN = ("anthropic", "io_sudoku.core.advisor", "io_sudoku.core.helpdesk")
 
 
 def _imports(path: Path) -> set[str]:
@@ -40,7 +40,7 @@ def test_advisor_imports_the_sdk_lazily_only():
 
 def test_fresh_solve_never_loads_ai_modules():
     code = ("import sys; from io_sudoku.core import pipeline, revision, rulepack, rulechange; "
-            "bad=[m for m in sys.modules if m=='anthropic' or m=='io_sudoku.core.advisor']; "
+            "bad=[m for m in sys.modules if m in ('anthropic', 'io_sudoku.core.advisor', 'io_sudoku.core.helpdesk')]; "
             "print(bad); sys.exit(1 if bad else 0)")
     result = subprocess.run([sys.executable, "-c", code], cwd=ROOT, capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr
