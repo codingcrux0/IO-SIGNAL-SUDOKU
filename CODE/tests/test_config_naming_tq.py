@@ -148,7 +148,7 @@ def test_ref_with_braces_is_safe():
 
 
 def test_catalogue_is_complete_and_consistent():
-    assert len(CATALOGUE) == 59
+    assert len(CATALOGUE) == 61                    # + PROJECT-RULE-BROKEN, ANSWER-UNRESOLVED
     for tq_id, spec in CATALOGUE.items():
         assert spec.severity in ("error", "warning", "info"), tq_id
         assert spec.owner and spec.category and spec.resolution, tq_id

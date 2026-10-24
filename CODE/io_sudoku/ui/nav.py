@@ -39,6 +39,14 @@ def link(text: str, view: str, heading: str = "") -> str:
     return f"[{clean}](#go-{slug(_place(view, heading).label)})"
 
 
+def link_to(text: str, label: str) -> str:
+    """Markdown for a link to the search place with exactly this label (for places that share a heading)."""
+    place = search.BY_LABEL.get(label)
+    if place is None:
+        return text
+    return f"[{text.replace('[', '(').replace(']', ')')}](#go-{slug(place.label)})"
+
+
 def go(place: search.Place) -> None:
     """Open a place: its view, its tab, then scroll to its heading (or to the top of the view).
     Used by the links and by the search bar."""
@@ -53,27 +61,56 @@ def go(place: search.Place) -> None:
     s["scroll_to"] = place.heading or "__top__"
 
 
+CELL_BOX = "cellpick_box"
+
+
+def pick_cell() -> None:
+    """A slot of Cabinet Layout was clicked: open Rule Check with it ('<slot id>@<click time>')."""
+    from io_sudoku.ui.views import rulecheck
+    value = str(st.session_state.get(CELL_BOX) or "")
+    sid = value.rsplit("@", 1)[0].strip()
+    if sid and st.session_state.get("result") is not None:
+        rulecheck.pick(sid)
+
+
+def cell_href(sid: str) -> str:
+    """The address of a slot link: clicking it opens the slot on Rule Check."""
+    from urllib.parse import quote
+    return "#cell-" + quote(sid, safe="")
+
+
 def render_targets() -> None:
-    """The hidden buttons the links press, and the listener frame (call once per run, in the sidebar)."""
+    """The hidden buttons the links press, the hidden box a clicked slot is typed into, and the listener
+    frame (call once per run, in the sidebar)."""
     with st.container(key=BOX_KEY):
         for key, place in SLUGS.items():
             st.button(place.label, key=f"navgo_{key}", on_click=go, args=(place,))
+        st.text_input("Picked cell", key=CELL_BOX, on_change=pick_cell, label_visibility="collapsed")
     st.iframe(LISTENER, height=1)
 
 
 # Installs the listener in the APP page's own realm, once, so it keeps working when this frame is redrawn.
 # If the page forbids that, this frame owns the listener and replaces its predecessor's on every load.
+# A '#go-<slug>' link presses the hidden button of that place.  A '#cell-<slot id>' link (and the drawings,
+# through window.__iosgCell) types the slot into the hidden box and presses Enter, which opens Rule Check.
 LISTENER = r"""<!DOCTYPE html><html><body><script>(function(){
 var w, d;
 try { w = window.parent; d = w.document; } catch (e) { return; }
-if (w.__iosgNav) return;
-var code = "var f = function (e) {" +
-  "var a = e.target && e.target.closest ? e.target.closest('a[href^=\"#go-\"]') : null;" +
-  "if (!a) return; e.preventDefault(); e.stopPropagation();" +
-  "var b = d.querySelector('.st-key-navgo_' + a.getAttribute('href').slice(4) + ' button');" +
+if (w.__iosgNav2) return;
+var code = "var pick = function (v) {" +
+  "var i = d.querySelector('.st-key-cellpick_box input'); if (!i) return;" +
+  "var set = Object.getOwnPropertyDescriptor(w.HTMLInputElement.prototype, 'value').set;" +
+  "set.call(i, v + '@' + Date.now()); i.dispatchEvent(new w.Event('input', {bubbles: true}));" +
+  "i.dispatchEvent(new w.KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true})); };" +
+  "w.__iosgCell = pick;" +
+  "var f = function (e) {" +
+  "var a = e.target && e.target.closest ? e.target.closest('a[href^=\"#go-\"],a[href^=\"#cell-\"]') : null;" +
+  "if (!a) return; e.preventDefault(); e.stopPropagation(); var h = a.getAttribute('href');" +
+  "if (h.indexOf('#cell-') === 0) { pick(decodeURIComponent(h.slice(6))); return; }" +
+  "var b = d.querySelector('.st-key-navgo_' + h.slice(4) + ' button');" +
   "if (b) b.click(); };" +
   "d.addEventListener('click', f, true); return function () { d.removeEventListener('click', f, true); };";
-try { (new w.Function('d', code))(d); w.__iosgNav = true; return; } catch (e) {}
+try { (new w.Function('d', 'w', code))(d, w); w.__iosgNav2 = true; return; } catch (e) {}
 try { if (w.__iosgNavOff) w.__iosgNavOff(); } catch (e) {}
-w.__iosgNavOff = (new Function('d', code))(d);
+w.__iosgNavOff = (new Function('d', 'w', code))(d, w);
 })();</script></body></html>"""

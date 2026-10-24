@@ -28,14 +28,39 @@ Moving around and fixing things:
 - **Links in sentences**: when a message sends you somewhere ("open the TQ Board", "on the Revision view"), the
   page name is a link that takes you straight there, to the right tab and section, without reloading the page.
 - **Short questions**: long questions on the TQ Board show as one short line; point at the small **i** next to
-  one to read the whole text, the suggested fix and the owner.
+  one to read the whole text, the suggested fix and the owner. Long explanations everywhere sit behind an **i**.
+- **Messages where they belong**: a saved change, an error or a confirmation appears right under the heading of the
+  section it is about, not at the top of the page.
 - **Edit File**: change any cell of the uploaded file in the page. Every **✎ Edit** button (Upload, and each error
-  and warning on the TQ Board) opens this page at the exact cell and brings you back when you save. Changes are
-  listed, can be undone, and can be downloaded as the edited file.
+  and warning on the TQ Board) opens this page at the exact cell and brings you back when you save. A question about
+  a whole cable lists every row of that cable; one about a whole cabinet opens that cabinet; one about a column opens
+  the column mapping. Changes are listed, the last one can be undone, and all can be deleted (both ask first).
+  Searches for cells (Edit File, Rule Check, Why Is It Here?, the file viewer) are **case-sensitive**; the search bar
+  and the TQ search are not.
+- **TQ Board**: filter the sign-off box (Errors, Waiting, Signed Off, Problem) and the question list (coloured
+  Error / Warning / Info buttons), with classic page buttons `‹ 1 2 3 … 9 ›` (press **…** to type a page). The **▸**
+  next to a question shows its suggested fix: write your own suggestion (kept in the workspace for the next person)
+  or send it for approval, or talk it through in the **Suggestion Assistant** in the sidebar. The assistant's AI is
+  not connected yet; when it is, it may only discuss and reword the suggestion and can never change a file, rule or
+  code. **Answer A Question** picks the tag from a list and then asks you to **verify** the answer: the tool
+  re-allocates and says whether the question is really cleared (if not, an `ANSWER-UNRESOLVED` warning is raised).
+- **Rule Check**: pick any cells (or click a slot or drawing cell on Cabinet Layout) and see a live log of every rule
+  and constraint that applies to each: ✓ met, ✗ broken, ▲ to check, plus answers, pins and the solver's decisions.
+  Point at **Signal Path** for the way from the field device to the controller.
+- **Cabinet Layout**: bigger slots and drawings; pick **All Cabinet Drawings** in the cabinet list to see every
+  cabinet's front and rear in one scroll box.
 - **Allocate buttons** are blue when something changed and turn grey (**✓ Allocation Up To Date**) once the
   allocation matches your current inputs. An out-of-date result is always shown as `DRAFT`.
 - **Revision → Revision History**: every allocation of the session is saved (Original, Revision 1, 2 ...), with a
-  summary; rename or delete them, and compare any two or more (Added / Deleted / Moved / Renamed).
+  summary; rename them, compare any two or more (Added / Deleted / Moved / Renamed), **Undo Last Revision** (its
+  file, answers, pins, rules and sign-offs come back) or delete chosen revisions - both ask first.
+- **Revision → Compare With A New MDB**: each count has **View In Detail**; pick a signal to see every column that
+  changed, the rules and decisions behind its new place, and open it on Rule Check. The impact report also opens as a
+  web page in the browser (**View In The Browser**, or download the `.html`).
+- **Rules**: propose **Settings**, **New Columns** (a project label on some CHARM signals, never written into the
+  locked 76-column allocation) or **Constraints** (checks every covered signal must pass; a broken one becomes a
+  `PROJECT-RULE-BROKEN` warning). Every rule has **👁 Where It Applies**, and Preview lists every cell a new pack
+  would change, signal by signal. None of them can move a signal, and the locked rules cannot be proposed at all.
 
 To see how the tool handles bad input, upload a file from `test_cases/`. The 21 files there are copies of the sample
 MDB with problems planted on purpose: messy formatting, tag, IO type, cable, pair, segregation and alarm errors, an
@@ -63,7 +88,7 @@ Run `--help` on any command for its options.
 ## Test it
 
 ```bash
-.venv/bin/python -m pytest          # about 600 tests: rules, golden output, fuzzing, scale, test cases, UI
+.venv/bin/python -m pytest          # about 670 tests: rules, golden output, fuzzing, scale, test cases, UI
 ```
 
 ## Layout

@@ -87,7 +87,7 @@ def test_redline_colours_become_change_labels(ctx):
 
 def test_search_looks_at_hidden_columns_too():
     sheet = pv.SheetPreview("s", ["Tag", "Cable"], [["T-1", "C-9"], ["T-2", "C-8"]], 2)
-    cols, rows, marks = pv.filter_rows(sheet, "c-9", ["Tag"])
+    cols, rows, marks = pv.filter_rows(sheet, "C-9", ["Tag"])
     assert cols == ["Tag"] and rows == [["T-1"]] and marks == []
 
 
@@ -123,7 +123,13 @@ def test_bundle_all_holds_every_file(ctx):
 
 def test_several_search_terms_keep_rows_matching_any():
     sheet = pv.SheetPreview("s", ["Tag", "Cable"], [["T-1", "C-1"], ["T-2", "C-1"], ["T-3", "C-2"]], 3, [])
-    _, rows, _ = pv.filter_rows(sheet, ["t-1", " T-3 "])
+    _, rows, _ = pv.filter_rows(sheet, ["T-1", " T-3 "])
     assert [r[0] for r in rows] == ["T-1", "T-3"]
     assert len(pv.filter_rows(sheet, [])[1]) == 3 and len(pv.filter_rows(sheet, ["", "  "])[1]) == 3
-    assert [r[0] for r in pv.filter_rows(sheet, "c-1")[1]] == ["T-1", "T-2"]          # one plain string still works
+    assert [r[0] for r in pv.filter_rows(sheet, "C-1")[1]] == ["T-1", "T-2"]          # one plain string still works
+
+
+def test_search_is_case_sensitive():
+    sheet = pv.SheetPreview("s", ["Tag", "Cable"], [["T-1", "C-1"], ["t-1", "C-2"]], 2, [])
+    assert [r[1] for r in pv.filter_rows(sheet, "t-1")[1]] == ["C-2"]                   # exactly what was typed
+    assert pv.filter_rows(sheet, "c-1")[1] == []

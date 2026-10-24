@@ -62,10 +62,10 @@ def _table(preview: pv.FilePreview, key: str) -> None:
         st.info("This sheet is empty.")
         return
     left, right = st.columns([2, 3])
-    needle = left.multiselect("Search", [], key=f"{key}_search", accept_new_options=True,
+    needle = left.multiselect("Search (case-sensitive)", [], key=f"{key}_search", accept_new_options=True,
                               placeholder="Type a tag and press Enter; add more the same way",
-                              help="Each search becomes a tag you can remove with its \u2715. "
-                                   "Rows matching any of the tags are shown.")
+                              help="Each search becomes a tag you can remove with its \u2715. Rows matching any of "
+                                   "the tags are shown. Capital letters count, so you get exactly what you typed.")
     shown_cols = right.multiselect("Show Only These Columns", sheet.columns, key=f"{key}_cols",
                                    placeholder="All columns")
     mark = ""

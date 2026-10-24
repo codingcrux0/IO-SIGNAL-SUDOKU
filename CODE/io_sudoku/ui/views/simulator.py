@@ -10,7 +10,7 @@ from io_sudoku.ui import state, ui_logic
 def _run() -> None:
     s = st.session_state
     if not s["mdb_bytes"]:
-        state.flash("error", "Upload an MDB or load the sample data first.")
+        state.flash("error", "Upload an MDB or load the sample data first.", "simulator")
         return
     minutes = ReworkMinutes(per_moved_tag=float(s["sim_moved"]), per_renamed_tag=float(s["sim_renamed"]),
                             per_added_tag=float(s["sim_added"]), per_deleted_tag=float(s["sim_deleted"]))
@@ -21,6 +21,7 @@ def _run() -> None:
 def render() -> None:
     s = st.session_state
     st.header("Revision Simulator")
+    state.show_flash("simulator")
     st.caption("Makes a pretend revision of your file and compares two ways of handling it. The hours are an estimate.")
     c1, c2 = st.columns(2)
     c1.slider("Share Of Tags Changed (%)", 0, 20, 5, key="sim_pct")

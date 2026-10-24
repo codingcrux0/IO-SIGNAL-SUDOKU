@@ -29,8 +29,9 @@ from io_sudoku.core.constants import (
 )
 from io_sudoku.core.ingest import IngestResult, empty_result, read_mdb
 from io_sudoku.core.models import Quarantined, Signal, Violation
-from io_sudoku.core.overrides import Override, apply_overrides, overrides_to_json
+from io_sudoku.core.overrides import Override, apply_overrides, check_answers, overrides_to_json
 from io_sudoku.core.place import PlanResult, alarm_kind, plan_and_place
+from io_sudoku.core.projectrules import check_project_rules
 from io_sudoku.core.readiness import Readiness, assess
 from io_sudoku.core.rows import build_rows
 from io_sudoku.core.spares import SpareLine, apply_spares
@@ -196,6 +197,10 @@ def solve_core(mdb_source: Any, cfg: Config | None = None, rev_label: str = "00"
     gone = {q.signal.key for q in later}
     expected = {s.key for s in val.accepted + val.alarms if s.key} - gone
     violations = stage("verify", lambda: verify(rows, cfg_used, expected), [])
+    if overrides:
+        stage("answers", lambda: check_answers(overrides, log), None)
+    if cfg_used.rules.project_rules:
+        stage("project rules", lambda: check_project_rules(rows, cfg_used.rules.project_rules, log), None)
 
     result = SolveResult(
         rows=rows, tqs=log.items(), violations=violations, quarantined=quarantined, spare_lines=lines,

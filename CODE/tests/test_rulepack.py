@@ -100,7 +100,7 @@ def test_no_locked_rule_can_be_expressed():
     assert len(LOCKED_RULES) == 8
     assert set(PARAM_RANGES) == {"spare_pct", "future_pct", "end_reserve_bps", "empty_bp_min"}
     assert OVERRIDE_KEYS == ("io_aliases", "high_current_keywords", "high_current_codes", "instrument_profiles",
-                             "segregation_families", "extra_cabinets")
+                             "segregation_families", "extra_cabinets", "project_rules")
     # A and B can still never share a CIOC whatever a pack says: families may be re-mapped, never merged.
     out = apply_pack(with_overrides(segregation_families={"C": "B"}), load_config())
     assert set(out.rules.a_codes).isdisjoint(out.rules.b_codes)

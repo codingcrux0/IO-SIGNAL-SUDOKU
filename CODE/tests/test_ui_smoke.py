@@ -121,12 +121,12 @@ def test_viewer_search_narrows_rows():
     at = run("Files", sample=True)
     at.session_state["view"] = "Files"
     at.run()
-    search = next(m for m in at.multiselect if m.label == "Search")
+    search = next(m for m in at.multiselect if m.label == "Search (case-sensitive)")
     search.set_value(["zzz-no-such-tag"]).run()
     assert not at.exception and any("No row matches" in i.value for i in at.info)
     rows = len(at.session_state["result"].rows)
     tags = [r["Tag Name"] for r in at.session_state["result"].rows if r.get("Tag Status") == "Field"][:2]
-    next(m for m in at.multiselect if m.label == "Search").set_value(tags).run()     # two tags: rows of either
+    next(m for m in at.multiselect if m.label == "Search (case-sensitive)").set_value(tags).run()     # two tags: rows of either
     assert not at.exception
     shown = [d.value for d in at.dataframe if 0 < d.value.shape[0] < rows]
     assert shown and set(shown[0]["Tag Name"]) >= set(tags)
@@ -242,13 +242,13 @@ def test_warnings_must_be_signed_off_before_issue_ready():
     at.session_state["view"] = "TQ Board"
     at.run()
     assert at.session_state["result"].readiness.status == "DRAFT"
-    controls = [c for c in at.get("segmented_control")]
+    controls = _signoff_controls(at)
     assert len(controls) == 2
     controls[0].set_value("✓ Approve").run()
     assert at.session_state["result"].readiness.status == "DRAFT"                     # one still waiting
-    [c for c in at.get("segmented_control")][1].set_value("✗ Problem").run()
+    _signoff_controls(at)[1].set_value("✗ Problem").run()
     assert at.session_state["result"].readiness.status == "DRAFT"                     # a problem keeps it in draft
-    [c for c in at.get("segmented_control")][1].set_value("✓ Approve").run()
+    _signoff_controls(at)[1].set_value("✓ Approve").run()
     assert at.session_state["result"].readiness.status == "ISSUE-READY"
     button = at.button(key="reallocate_tq")
     assert button.disabled and button.label.endswith("Allocation Up To Date")          # grey: nothing changed
@@ -260,6 +260,11 @@ def test_warnings_must_be_signed_off_before_issue_ready():
     at.button(key="solve_upload").click().run()                                       # approvals survive a re-allocation
     assert not at.exception and at.session_state["result"].readiness.status == "ISSUE-READY"
     assert at.button(key="solve_upload").disabled
+
+
+def _signoff_controls(at: AppTest) -> list:
+    """The Approve / Problem buttons of the warnings (not the Show filter above them)."""
+    return [c for c in at.get("segmented_control") if c.key.startswith("signoff_") and c.key != "signoff_show"]
 
 
 def test_approve_all_needs_the_checkbox():
@@ -294,9 +299,13 @@ def test_cabinet_layout_keeps_map_drawings_trace_and_pack():
     assert any("iosg-grid" in str(h.proto) for h in at.get("html"))          # the slot map
     assert [s.label for s in at.selectbox].count("Cabinet") == 1             # one shared cabinet picker
     assert at.selectbox(key="why_tag") is not None                           # Why Is It Here?
-    assert any(t.label == "Show All Cabinet Drawings" for t in at.toggle)    # the printable pack, renamed
-    at.toggle(key="draw_view_drawings").set_value(True).run()
-    assert not at.exception
+    assert at.selectbox(key="selected_cabinet").options[0].endswith("All Cabinet Drawings")   # in the dropdown now
+    at.selectbox(key="selected_cabinet").set_value(at.selectbox(key="selected_cabinet").options[0]).run()
+    assert not at.exception, [e.value for e in at.exception]
+    frames = _drawing_frames(at)
+    assert len(frames) == 1 and str(frames[0].proto).count("<section>") == 3       # every cabinet, one scroll box
+    assert not any("iosg-grid" in str(h.proto) for h in at.get("html"))            # it replaces the slot map
+    assert any(b.label.startswith("Download Printable Drawings") for b in at.get("download_button"))
 
 
 def test_old_grid_and_drawings_links_open_cabinet_layout():
@@ -397,5 +406,5 @@ def test_errors_and_warnings_share_one_signoff_box():
     assert "Sign Off The Warnings" in heads and "Fix The Errors" not in heads
     assert any(b.key and b.key.startswith("edit_err_") for b in at.button)
     assert any(b.key and b.key.startswith("edit_warn_") for b in at.button)
-    assert len(at.get("segmented_control")) == len({(t.tq_id, t.ref) for t in at.session_state["result"].tqs
-                                                    if t.severity == "warning"})
+    assert len(_signoff_controls(at)) == len({(t.tq_id, t.ref) for t in at.session_state["result"].tqs
+                                              if t.severity == "warning"})

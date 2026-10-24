@@ -83,6 +83,8 @@ def _rows() -> list[tuple[str, str, str, str, str]]:
         ("OVERRIDE-APPLIED", "info", "Override", "Engineering", "No action: the engineer's answer was applied."),
         ("OVERRIDE-NO-MATCH", "warning", "Override", "Engineering", "Check the tag in the answer file."),
         ("OVERRIDE-INVALID", "warning", "Override", "Engineering", "Correct the answer value."),
+        ("PROJECT-RULE-BROKEN", "warning", "Project rule", "Engineering", "Fix those signals in the file, or change the project rule on the Rules page."),
+        ("ANSWER-UNRESOLVED", "warning", "Override", "Engineering", "Check the answer: the question it was given for is still open."),
         ("REV-A-UNPARSEABLE", "warning", "Revision", "Engineering", "Positions were not pinned; the revisions were only compared."),
         ("REVISION-AMBIGUOUS", "warning", "Revision", "Engineering", "A tag appears twice in one revision; the first was kept."),
         ("INTERNAL", "error", "System", "System", "Download the support bundle and report this."),
@@ -151,10 +153,19 @@ MESSAGES: dict[str, str] = {
     "OVERRIDE-APPLIED": "The engineer's answer for {ref} was applied.",
     "OVERRIDE-NO-MATCH": "An answer was given for tag {ref}, but no such tag exists. Is the tag spelled correctly?",
     "OVERRIDE-INVALID": "The answer for {ref} is not allowed. Can you correct it?",
+    "PROJECT-RULE-BROKEN": "Some signals break the project rule {ref}. Should they be fixed, or the rule changed?",
+    "ANSWER-UNRESOLVED": "The answer given for {ref} did not clear the question it was meant to answer. Is the answer right?",
     "REV-A-UNPARSEABLE": "Revision A could not be mapped to the cabinets, so positions were not pinned.",
     "REVISION-AMBIGUOUS": "Tag {ref} appears twice in one revision. Which row is correct?",
     "INTERNAL": "The tool hit an unexpected problem in {ref}. Please download the support bundle and report it.",
 }
+
+
+def project_rule_message(statement: str, count: int, tags: list[str]) -> str:
+    """Question text of PROJECT-RULE-BROKEN: the rule in words, how many signals break it, the first tags."""
+    shown = ", ".join(tags[:6]) + (f" and {count - 6} more" if count > 6 else "")
+    noun = "signal breaks" if count == 1 else "signals break"
+    return f"{count} {noun} the project rule \u201c{statement}\u201d: {shown}. Should they be fixed, or the rule changed?"
 
 
 @dataclass(frozen=True)

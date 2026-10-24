@@ -128,6 +128,9 @@ def test_drawing_page_keeps_the_svg_and_sizes_the_frame():
     rows = load_sample_result().rows
     svg = cabinet_svg(rows, rows[0]["Electronic/ Marshalling Cabinet"], "F")
     page, height = ui_logic.drawing_page(svg)
-    assert svg in page and "<script>" in page and height == int(re.search(r'height="(\d+)"', svg).group(1)) + 6
+    drawn = int(re.search(r'height="(\d+)"', svg).group(1))
+    assert svg[svg.index("<title"):] in page and "<script>" in page                 # the same drawing, drawn larger
+    assert height == round(drawn * ui_logic.DRAWING_SCALE) + 22                       # + room for a sideways scroll bar
+    assert f'height="{round(drawn * ui_logic.DRAWING_SCALE)}"' in page and "__iosgCell" in page   # a click opens Rule Check
     script = page[page.index("<script>"):]
     assert '"\n"' not in script                                               # a raw newline inside a JS string breaks it

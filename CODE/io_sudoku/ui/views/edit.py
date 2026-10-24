@@ -13,7 +13,7 @@ import streamlit as st
 
 from io_sudoku.ui import editing, state, ui_logic
 from io_sudoku.ui.nav import link
-from io_sudoku.ui.views._common import allocate_button, md_escape
+from io_sudoku.ui.views._common import allocate_button, ask_first, heading, md_escape
 
 
 def _sheet(sheets: list[editing.EditSheet], name: str | None) -> editing.EditSheet:
@@ -43,7 +43,11 @@ def render() -> None:
     if target is not None and target.row is not None:
         _jump(target, sheets)
     elif target is not None:
-        st.info(f"**{md_escape(target.why)}**: no single cell holds this, so the search below is filled in with it.")
+        if target.show:
+            st.info(f"**{md_escape(target.why)}**: this is about the whole cable, so every row of it is listed below "
+                    "(only the useful columns). Change the cell that is wrong, then press Save Table Changes.")
+        else:
+            st.info(f"**{md_escape(target.why)}**: no single cell holds this, so the search below is filled in with it.")
     _find(sheets)
     _changes()
     st.divider()
@@ -100,13 +104,17 @@ def _save_row(sheet_name: str, row: int, widget: str) -> None:
 
 def _find(sheets: list[editing.EditSheet]) -> None:
     s = st.session_state
-    st.subheader("Find A Cell")
+    heading("Find A Cell", "The search is case-sensitive, so you land on exactly the cell you typed: "
+                           "'320-FT' does not find '320-ft'. It looks in every column of the sheet.")
     names = [x.name for x in sheets]
     if len(names) > 1:
         st.radio("Sheet", names, horizontal=True, key="edit_sheet")
     sheet = _sheet(sheets, s.get("edit_sheet"))
+    if s.get("edit_cols"):                       # columns picked on another sheet are not offered here
+        s["edit_cols"] = [h for h in s["edit_cols"] if h in sheet.headers]
     c1, c2 = st.columns([3, 1])
-    needle = c1.text_input("Search", key="edit_search", autocomplete="off", placeholder="A tag, cable or any text")
+    needle = c1.text_input("Search (case-sensitive)", key="edit_search", autocomplete="off",
+                           placeholder="A tag, cable or any text, exactly as written")
     row_no = c2.number_input("Or Go To Row", min_value=0, step=1, key="edit_row", help="The row number as in Excel (0 = off).")
     cols = st.multiselect("Show Only These Columns", list(sheet.headers), key="edit_cols", placeholder="All columns")
     rows = editing.find_rows(sheet, needle, int(row_no) or None)
@@ -149,16 +157,22 @@ def _save_grid(sheet_name: str, needle: str, row_no: int, picked: tuple[str, ...
 
 def _changes() -> None:
     s = st.session_state
-    st.subheader("Your Changes")
+    heading("Your Changes")
     log = s["edit_log"]
     if not log:
         st.caption("No changes yet. The file is exactly as you uploaded it.")
         return
-    st.dataframe(log, hide_index=True, width="stretch", height=min(320, 38 + 35 * len(log)))
+    st.dataframe(log, hide_index=True, width="stretch", height=min(320, 38 + 35 * len(log)),
+                 column_order=[c for c in log[0] if not c.startswith("_")])
     name = s["mdb_name"] or "MDB.xlsx"
     stem, _, ext = name.rpartition(".")
-    a, b = st.columns(2, vertical_alignment="center")
-    a.download_button("Download Edited File", data=s["mdb_bytes"], file_name=f"{stem or name}_edited.{ext or 'xlsx'}",
-                      key="edit_download", on_click="ignore", help="Your file with every change above.")
-    sure = b.checkbox("I understand this undoes every change", key="undo_edits_ok")
-    b.button("Undo All Changes", key="edit_undo", disabled=not sure, on_click=state.undo_all_edits)
+    with st.container(horizontal=True, gap="small", vertical_alignment="center"):
+        st.download_button("Download Edited File", data=s["mdb_bytes"], file_name=f"{stem or name}_edited.{ext or 'xlsx'}",
+                           key="edit_download", on_click="ignore", help="Your file with every change above.")
+        last = log[-1]
+        ask_first("undo_last_edit", "↶ Undo Last Change",
+                  f"Undo the last change (row {last['Row']}, “{last['Column']}” back to "
+                  f"“{last['Old Value'] or '(empty)'}”)?", state.undo_last_edit, yes="Yes, undo it")
+        ask_first("undo_all_edits", "🗑 Delete All Changes",
+                  f"Delete all {len(log):,} changes? The file goes back to exactly the one you uploaded.",
+                  state.undo_all_edits, yes="Yes, delete them all")

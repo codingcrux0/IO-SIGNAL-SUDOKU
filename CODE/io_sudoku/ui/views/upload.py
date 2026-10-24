@@ -36,6 +36,7 @@ def render() -> None:
             st.success("Your template will be used for the allocation download.")
 
     with st.expander("Continue A Saved Project (workspace .zip)"):
+        state.show_flash("workspace")
         st.checkbox("I understand this replaces my saved rules, answers and pins", key="workspace_ok")
         st.file_uploader("Workspace File", type=["zip"], key="workspace_uploader", on_change=state.on_workspace_upload)
 
@@ -66,6 +67,7 @@ def _column_mapping() -> None:
     s = st.session_state
     headers = ui_logic.list_headers(s["mdb_bytes"])
     with st.expander("Check How Your Columns Were Understood"):
+        state.show_flash("columns")
         if not headers:
             st.info("The column headers could not be listed. The solver will still try to read the file.")
             return
@@ -92,4 +94,4 @@ def _save_columns(fields: list[str]) -> None:
     chosen = {f: s.get(f"colmap_{f}", AUTO) for f in fields}
     s["column_overrides"] = {f: h for f, h in chosen.items() if h != AUTO}
     state.mark_stale()
-    state.flash("success", "Column mapping saved. Run the allocation again to use it.")
+    state.flash("success", "Column mapping saved. Run the allocation again to use it.", "columns")

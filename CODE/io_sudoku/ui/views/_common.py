@@ -1,6 +1,7 @@
 """Small widgets shared by several views: empty state, stale banner, readiness block, download button."""
 from __future__ import annotations
 
+import re
 from typing import Any
 
 import streamlit as st
@@ -18,12 +19,12 @@ def md_escape(text: str) -> str:
 SIGNOFF_COLOURS = {"\u2713": "#3fb950", "\u2717": "#ff7b72"}     # Sign-Off cell: green approved, red problem
 
 
-def tq_table(tqs: list[Any], signoffs: dict[str, str] | None = None) -> None:
+def tq_table(tqs: list[Any], signoffs: dict[str, str] | None = None, notes: dict[str, dict] | None = None) -> None:
     """The questions as a table, each row coloured by severity: red error, amber warning, blue info.
     With `signoffs`, a Sign-Off column says whether each warning is approved, a problem or waiting."""
     import pandas as pd
 
-    frame = pd.DataFrame(ui_logic.tq_rows(tqs, signoffs))
+    frame = pd.DataFrame(ui_logic.tq_rows(tqs, signoffs, notes))
     if frame.empty:
         return
     colours = [ui_logic.SEVERITY_COLOURS.get(t.severity, ("", "", "")) for t in tqs]
@@ -79,11 +80,31 @@ def allocate_button(key: str) -> None:
                   on_click=state.on_solve, help="Runs the allocation with your current file, answers, pins and rules.")
 
 
+# Readiness reasons that name questions get a link to exactly those questions on the TQ Board.
+_REASON_LINKS = ((re.compile(r"^(\d+ warnings?) (were|was) signed off"), "TQ Board › Warnings Already Signed Off"),
+                 (re.compile(r"^(\d+ warnings?) (are|is) waiting for sign-off"), "TQ Board › Warnings Still Waiting For Sign-Off"),
+                 (re.compile(r"^(\d+ warnings?) (were|was) marked as a problem"), "TQ Board › Warnings Marked As A Problem By You"),
+                 (re.compile(r"^(\d+ error TQs?)"), "TQ Board › Errors To Fix"),
+                 (re.compile(r"^(\d+ signals?) (were|was) set aside"), "TQ Board › Errors To Fix"),
+                 (re.compile(r"^(\d+ warnings?) to review"), "TQ Board › Sign Off The Warnings"))
+
+
+def reason_md(reason: str) -> str:
+    """A readiness reason as Markdown: '2 warnings were signed off' -> '[2 warnings](link) were signed off'."""
+    from io_sudoku.ui.nav import link_to
+    for pattern, label in _REASON_LINKS:
+        match = pattern.match(reason)
+        if match:
+            words = match.group(1)
+            return link_to(words, label) + md_escape(reason[len(words):])
+    return md_escape(reason)
+
+
 def readiness_block(result) -> None:
     status, reasons = ui_logic.readiness_text(result)
     st.markdown(theme.badge(status), unsafe_allow_html=True)
     if reasons:
-        st.markdown("\n".join(f"- {r}" for r in reasons))
+        st.markdown("\n".join(f"- {reason_md(r)}" for r in reasons))
     if status != "ISSUE-READY":
         questions = ui_logic.blocking_questions(result)
         if questions:
@@ -128,16 +149,101 @@ def file_card(spec: ui_logic.DownloadSpec, ctx: dict[str, Any], result_key: str,
 def main_ctx() -> dict[str, Any]:
     s = st.session_state
     return {"result": s["result"], "mdb_bytes": s["mdb_bytes"], "pack": s["pack"], "overrides": s["overrides"],
-            "pins": s["pins"], "rev_label": s["rev_label"], "template_bytes": s["template_bytes"]}
+            "pins": s["pins"], "rev_label": s["rev_label"], "template_bytes": s["template_bytes"], "notes": state.notes_for_export()}
+
+
+ALL_DRAWINGS = "📐 All Cabinet Drawings"
 
 
 def cabinet_picker(rows: list[dict[str, Any]], key: str) -> str | None:
-    """The cabinet dropdown of Cabinet Layout; its choice is kept in the URL too."""
+    """The cabinet dropdown of Cabinet Layout; its choice is kept in the URL too.  The first option shows
+    the drawings of every cabinet at once (ALL_DRAWINGS)."""
     names = ui_logic.cabinet_names(rows)
     if not names:
         st.info("This result has no cabinets to show.")
         return None
     s = st.session_state
-    if s.get("selected_cabinet") not in names:
+    if s.get("selected_cabinet") not in names + [ALL_DRAWINGS]:
         s["selected_cabinet"] = names[0]
-    return st.selectbox("Cabinet", names, key="selected_cabinet")
+    return st.selectbox("Cabinet", [ALL_DRAWINGS] + names, key="selected_cabinet",
+                        help="Pick one cabinet, or All Cabinet Drawings to see the front and rear of every cabinet in one scroll box.")
+
+
+# ------------------------------------------------------------------ page numbers
+def page_numbers(page: int, pages: int) -> list[int | None]:
+    """Which page buttons to show (1-based; None = a '…' gap): the first, the last, and the pages around the
+    current one.  page_numbers(5, 12) -> [1, None, 4, 5, 6, None, 12]."""
+    if pages <= 7:
+        return list(range(1, pages + 1))
+    wanted = sorted({1, pages, page - 1, page, page + 1} & set(range(1, pages + 1)))
+    out: list[int | None] = []
+    for n in wanted:
+        if out and n - out[-1] > 1:
+            out.append(None if n - out[-1] > 2 else n - 1)
+        out.append(n)
+    return out
+
+
+def _set_page(key: str, page: int) -> None:
+    st.session_state[key] = page
+
+
+def _jump_page(key: str, pages: int) -> None:
+    s = st.session_state
+    s[key] = min(max(int(s.get(f"{key}_jump") or 1), 1), pages) - 1
+
+
+def pager(key: str, pages: int) -> None:
+    """The classic page buttons  ‹ 1 2 3 … 9 ›  (page 1 is the first).  '…' opens a box to type a page.
+    `st.session_state[key]` holds the page, counted from 0 inside the code."""
+    s = st.session_state
+    if pages <= 1:
+        return
+    current = min(max(int(s.get(key) or 0), 0), pages - 1) + 1
+    with st.container(horizontal=True, gap="small", horizontal_alignment="right", key=f"pager_{key}"):
+        st.button("‹", key=f"{key}_prev", disabled=current == 1, on_click=_set_page, args=(key, current - 2),
+                  help="Previous page")
+        for i, n in enumerate(page_numbers(current, pages)):
+            if n is None:
+                with st.popover("…", key=f"{key}_more_{i}", help=f"Type a page number from 1 to {pages:,}"):
+                    st.number_input(f"Go to page (1 to {pages:,})", min_value=1, max_value=pages, value=current, step=1,
+                                    key=f"{key}_jump")
+                    st.button("Go", key=f"{key}_go_{i}", type="primary", on_click=_jump_page, args=(key, pages))
+            else:
+                st.button(f"{n:,}", key=f"{key}_p{n}", type="primary" if n == current else "secondary",
+                          on_click=_set_page, args=(key, n - 1))
+        st.button("›", key=f"{key}_next", disabled=current == pages, on_click=_set_page, args=(key, current),
+                  help="Next page")
+
+
+# ------------------------------------------------------------------ "are you sure?"
+def _ask(key: str) -> None:
+    st.session_state["confirm"] = key
+
+
+def _cancel() -> None:
+    st.session_state["confirm"] = None
+
+
+def _confirmed(action, args: tuple) -> None:
+    st.session_state["confirm"] = None
+    action(*args)
+
+
+def ask_first(key: str, label: str, question: str, action, args: tuple = (), *, yes: str = "Yes",
+              help: str | None = None, disabled: bool = False) -> None:
+    """A button that asks before it acts: pressing it shows the question with Yes and Cancel in its place."""
+    if st.session_state.get("confirm") != key:
+        st.button(label, key=f"ask_{key}", help=help, disabled=disabled, on_click=_ask, args=(key,))
+        return
+    with st.container(border=True, key=f"confirm_{key}"):
+        st.markdown(f"**{question}**")
+        with st.container(horizontal=True, gap="small"):
+            st.button(yes, key=f"yes_{key}", type="primary", on_click=_confirmed, args=(action, args))
+            st.button("Cancel", key=f"no_{key}", on_click=_cancel)
+
+
+def heading(title: str, info: str = "", where: str | None = None, anchor: str | None = None) -> None:
+    """A section heading with an optional (i) for the long explanation, then any message for this section."""
+    st.subheader(title, anchor=anchor, help=info or None)
+    state.show_flash(where if where is not None else title)

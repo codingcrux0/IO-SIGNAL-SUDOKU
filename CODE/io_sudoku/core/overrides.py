@@ -112,6 +112,25 @@ def apply_overrides(signals: list[Signal], overrides: list[Override], cfg: Confi
     return result
 
 
+ANSWERS_PREFIX = "Answers "          # Override.note of an answer given for one TQ: 'Answers MISSING-IO-TYPE'
+
+
+def answered_tq(o: Override) -> str | None:
+    """The TQ id an answer was given for (None for an answer typed without a question)."""
+    note = str(o.note or "")
+    return note[len(ANSWERS_PREFIX):].strip() or None if note.startswith(ANSWERS_PREFIX) else None
+
+
+def check_answers(overrides: list[Override], log: TQLog) -> None:
+    """After a solve: an answer whose question is STILL raised for its tag gets an ANSWER-UNRESOLVED warning,
+    so a wrong answer is never silently accepted.  Reads the log only; it changes no signal."""
+    raised = {(t.tq_id, match_key(t.ref) or "") for t in log}
+    for o in overrides:
+        tq_id = answered_tq(o)
+        if tq_id and (tq_id, match_key(o.tag_key) or "") in raised and not log.has_once("ANSWER-UNRESOLVED", o.tag_key):
+            log.add("ANSWER-UNRESOLVED", o.tag_key)
+
+
 def overrides_to_json(items: list[Override]) -> str:
     return json.dumps([{"tag_key": o.tag_key, "field": o.field, "value": o.value, "by": o.by, "note": o.note}
                        for o in items], sort_keys=True)

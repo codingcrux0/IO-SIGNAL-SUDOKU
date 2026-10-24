@@ -5,8 +5,9 @@ import streamlit as st
 
 from io_sudoku.core.selftest import SelfTestReport, run_selftest
 from io_sudoku.ui import state, theme, ui_logic
+from io_sudoku.ui import nav
 from io_sudoku.ui.nav import link
-from io_sudoku.ui.views._common import allocate_button, readiness_block, stale_banner
+from io_sudoku.ui.views._common import allocate_button, heading, readiness_block, stale_banner
 
 
 @st.cache_resource(show_spinner=False)
@@ -42,6 +43,7 @@ def render() -> None:
         allocate_button("solve_main")
     if s["ui_error"]:
         st.error(s["ui_error"])
+    state.show_flash("Run Allocation")
     report = _selftest()
     st.markdown(f'<span class="iosg-badge {"ready" if report.ok else "blocked"}" role="status">'
                 f'Self-test {"passed" if report.ok else "FAILED"} ({report.ms:,.0f} ms)</span>', unsafe_allow_html=True)
@@ -57,10 +59,16 @@ def render() -> None:
     _kpi_boxes(result)
     if result.quarantined:
         st.warning(f"{len(result.quarantined):,} signals were set aside because they could not be placed safely. "
-                   f"Open the {link('TQ Board', 'TQ Board', 'Sign Off The Warnings')} to fix them.")
-    st.subheader("Wired Spares Per Controller", anchor=ui_logic.SPARES_ANCHOR)
-    st.dataframe([{"Controller": l.controller, "IO Type": l.io_type, "Field": l.field, "Required": l.quota,
-                   "Wired": l.wired, "Short": l.shortfall} for l in result.spare_lines], hide_index=True, width="stretch")
+                   f"Open the {nav.link_to('TQ Board', 'TQ Board › Errors To Fix')} to fix them.")
+    heading("Wired Spares Per Controller", "Every controller keeps the project's percentage of wired spares for each "
+                                            "IO type (10% by default, rounded up). Short = how many are missing.",
+            anchor=ui_logic.SPARES_ANCHOR)
+    lines = [{"Controller": l.controller, "IO Type": l.io_type, "Field": l.field, "Required": l.quota, "Wired": l.wired,
+              "Short": l.shortfall, "Status": "\u2713 Met" if l.shortfall <= 0 else f"\u2717 {l.shortfall} short"}
+             for l in result.spare_lines]
+    # tall enough for every row (up to 30), so no scroll bar sits on top of the numbers
+    st.dataframe(lines, hide_index=True, width="stretch", height=min(38 + 35 * len(lines) + 3, 38 + 35 * 30),
+                 column_config={"Status": st.column_config.TextColumn(width="small")})
     with st.expander("Assumptions Used In This Run"), st.container(height=320):
         for a in result.assumptions:
             st.markdown(f"**{a.id}** — {a.text}  \n*Source: {a.source}. Confirm with: {a.confirm_by}.*")

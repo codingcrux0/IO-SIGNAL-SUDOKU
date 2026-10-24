@@ -9,6 +9,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 from html import escape
+from urllib.parse import quote
 from typing import Any
 
 import streamlit as st
@@ -201,6 +202,7 @@ def cabinet_grid_html(rows: list[dict[str, Any]], cabinet: str) -> str:
                     out.append('<i class="iosg-slot s-none" role="img" aria-label="No data"></i>')
                     continue
                 css, cue, kind = _slot_text(row)
+                sid = f"{cabinet}~{cioc}~{bp}~{ch}"
                 tag = str(row.get("Tag Name") or "-")
                 io = str(row.get("IO Type") or "-")
                 detail = f"{tag}, {kind}, {io}"
@@ -212,9 +214,11 @@ def cabinet_grid_html(rows: list[dict[str, Any]], cabinet: str) -> str:
                 label = f"Cabinet {cabinet}, CIOC {cioc}, baseplate {bp}, channel {ch}: {detail}"
                 tip = "\n".join([tag, f"{kind} \u00b7 {IO_SHORT.get(io, io)} \u00b7 {row.get('CHARM Type') or '-'}",
                                   f"Cable {cable} \u00b7 {pair}" if cable != "-" else "No field cable",
-                                  f"CIOC {cioc} \u00b7 BP {bp} \u00b7 CH {ch} \u00b7 CHARM {row.get('CHARM_No') or '-'}"])
-                out.append(f'<i class="iosg-slot {css}" role="img" aria-label="{escape(label, quote=True)}" '
-                           f'data-tip="{escape(tip, quote=True)}">{escape(cue)}</i>')
+                                  f"CIOC {cioc} \u00b7 BP {bp} \u00b7 CH {ch} \u00b7 CHARM {row.get('CHARM_No') or '-'}",
+                                  "Click to check its rules"])
+                inner = f'<b class="cue">{escape(cue)}</b>' if css.startswith("s-wired") else escape(cue)
+                out.append(f'<a class="iosg-cell-link" href="#cell-{quote(sid, safe="")}" aria-label="{escape(label, quote=True)}">'
+                           f'<i class="iosg-slot {css}" role="img" data-tip="{escape(tip, quote=True)}">{inner}</i></a>')
             out.append("</div>")
         out.append("</section>")
     out.append("</div>")
@@ -223,26 +227,34 @@ def cabinet_grid_html(rows: list[dict[str, Any]], cabinet: str) -> str:
 
 # The cabinet drawings are SVG, which st.html removes (it allows HTML only), so each drawing is shown as a
 # small page in an iframe.  The SVG comes from elevation.cabinet_svg, which escapes every value; the
-# script only turns each cell's <title> into an instant hover card.
+# script only turns each cell's <title> into an instant hover card, and a click on a cell opens it on
+# Rule Check (through the app page's __iosgCell, installed by nav.LISTENER).
 _DRAWING_PAGE = r"""<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><style>
 html,body{margin:0;background:#0d1117;color:#e6edf3;color-scheme:dark;
 font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-svg{display:block;max-width:100%;height:auto}
+body{overflow:auto}
+svg{display:block;max-width:none;height:auto}
+g.cell{cursor:pointer}
 g.cell:hover rect{stroke:#fff;stroke-width:2.5}
+section{margin:0 0 22px}
+h2{position:sticky;top:0;z-index:2;margin:0 0 8px;padding:6px 2px;font-size:15px;background:#0d1117;
+border-bottom:1px solid #30363d}
+.pair{display:flex;flex-wrap:wrap;gap:20px}
 #tip{position:fixed;display:none;pointer-events:none;white-space:pre;background:#0b0f14;color:#e6edf3;
 border:1px solid #58a6ff;border-radius:6px;padding:6px 9px;font-size:12px;line-height:1.45;z-index:9;
 box-shadow:0 6px 18px rgba(0,0,0,.55)}
 #tip b{font-weight:700}
+#tip i{color:#58a6ff;font-style:normal}
 </style></head><body>@SVG@<div id="tip" role="tooltip"></div><script>
 (function () {
   var tip = document.getElementById("tip");
   document.querySelectorAll("g.cell").forEach(function (g) {
     var t = g.querySelector("title");
     if (!t) return;
-    var p = t.textContent.split(" \u00b7 ");
+    var p = t.textContent.split(" · ");
     g.setAttribute("aria-label", t.textContent);
     g.dataset.tag = p[0] || "-";
-    g.dataset.rest = [(p[1] || "-") + " \u00b7 " + (p[2] || "-"), "CHARM " + (p[3] || "-"),
+    g.dataset.rest = [(p[1] || "-") + " · " + (p[2] || "-"), "CHARM " + (p[3] || "-"),
                       p[4] === "no cable" ? "No field cable" : "Cable " + (p[4] || "-")].join("\n");
     t.remove();
   });
@@ -260,21 +272,54 @@ box-shadow:0 6px 18px rgba(0,0,0,.55)}
     var b = document.createElement("b");
     b.textContent = g.dataset.tag;
     tip.appendChild(b);
-    tip.appendChild(document.createTextNode("\n" + g.dataset.rest));
+    tip.appendChild(document.createTextNode("\n" + g.dataset.rest + "\n"));
+    var hint = document.createElement("i");
+    hint.textContent = "Click to check its rules";
+    tip.appendChild(hint);
     tip.style.display = "block";
     place(e);
   });
   document.addEventListener("mousemove", function (e) { if (tip.style.display === "block") place(e); });
   document.addEventListener("mouseleave", function () { tip.style.display = "none"; });
+  document.addEventListener("click", function (e) {
+    var g = e.target.closest && e.target.closest("g.cell");
+    if (!g || !g.dataset.slot) return;
+    try { if (window.parent.__iosgCell) window.parent.__iosgCell(g.dataset.slot); } catch (err) {}
+  });
 })();
 </script></body></html>"""
 
+DRAWING_SCALE = 1.35        # the drawings are drawn 35% larger than the printable pack, so the numbers are easy to read
+ALL_DRAWINGS_HEIGHT = 860   # the "All Cabinet Drawings" scroll box (px)
 
-def drawing_page(svg: str) -> tuple[str, int]:
-    """(self-contained page, height in px) for one cabinet drawing, with instant hover cards."""
+
+def _scaled(svg: str, scale: float) -> tuple[str, int]:
+    """The SVG drawn `scale` times larger (its viewBox keeps the drawing sharp), and its new height."""
     import re
-    match = re.search(r'<svg[^>]*\sheight="(\d+)"', svg)
-    return _DRAWING_PAGE.replace("@SVG@", svg), (int(match.group(1)) if match else 300) + 6
+    match = re.search(r'<svg[^>]*?\swidth="(\d+)" height="(\d+)"', svg)
+    if not match:
+        return svg, 300
+    width, height = round(int(match.group(1)) * scale), round(int(match.group(2)) * scale)
+    start, end = match.span(1)[0], match.span(2)[1]
+    return svg[:start] + f'{width}" height="{height}' + svg[end:], height
+
+
+def drawing_page(svg: str, scale: float = DRAWING_SCALE) -> tuple[str, int]:
+    """(self-contained page, height in px) for one cabinet drawing, with instant hover cards.  Wider than
+    the frame?  The page scrolls sideways (room for its scroll bar is included in the height)."""
+    body, height = _scaled(svg, scale)
+    return _DRAWING_PAGE.replace("@SVG@", body), height + 22
+
+
+def all_drawings_page(rows: list[dict[str, Any]], cabinets: list[str], scale: float = 1.15) -> str:
+    """Every cabinet's front and rear drawing in ONE page that scrolls inside its own box."""
+    from io_sudoku.core.elevation import cabinet_svg
+    parts = []
+    for cabinet in cabinets:
+        front, _ = _scaled(cabinet_svg(rows, cabinet, "F"), scale)
+        rear, _ = _scaled(cabinet_svg(rows, cabinet, "R"), scale)
+        parts.append(f'<section><h2>{escape(cabinet)}</h2><div class="pair">{front}{rear}</div></section>')
+    return _DRAWING_PAGE.replace("@SVG@", "".join(parts) or "<p>No cabinets to draw.</p>")
 
 
 @st.cache_data(max_entries=64, show_spinner=False)
@@ -288,9 +333,12 @@ def cabinet_names(rows: list[dict[str, Any]]) -> list[str]:
 
 
 # ----------------------------------------------------------------------------- TQ helpers
-def filter_tqs(tqs: list[TQ], severity: str = "all", text: str = "") -> list[TQ]:
+def filter_tqs(tqs: list[TQ], severity: str | list[str] | tuple[str, ...] = "all", text: str = "") -> list[TQ]:
+    """Questions of the chosen severities ('all', one, or a list; an empty list = all) that contain the text.
+    The search here is NOT case-sensitive (it searches words in questions, not exact cells)."""
+    wanted = set() if severity in ("all", None) else ({severity} if isinstance(severity, str) else set(severity))
     needle = (text or "").strip().lower()
-    return [t for t in tqs if (severity == "all" or t.severity == severity)
+    return [t for t in tqs if (not wanted or t.severity in wanted)
             and (not needle or needle in f"{t.tq_id} {t.ref} {t.message} {t.owner}".lower())]
 
 
@@ -323,14 +371,18 @@ def signoff_text(item: Any, signoffs: dict[str, str]) -> str:
     return SIGNOFF_TEXT.get(signoffs.get(readiness_mod.warning_key(item), ""), "Waiting")
 
 
-def tq_rows(tqs: list[TQ], signoffs: dict[str, str] | None = None) -> list[dict[str, Any]]:
-    """Table rows for TQs; with `signoffs`, a Sign-Off column shows each warning's state."""
+def tq_rows(tqs: list[TQ], signoffs: dict[str, str] | None = None, notes: dict[str, dict] | None = None) -> list[dict[str, Any]]:
+    """Table rows for TQs; with `signoffs`, a Sign-Off column shows each warning's state; with `notes`,
+    an Engineer's Note column shows the suggestion someone wrote for it."""
     rows = []
     for t in tqs:
         row = {"ID": t.tq_id, "Severity": SEVERITY_LABEL.get(t.severity, t.severity)}
         if signoffs is not None:
             row["Sign-Off"] = signoff_text(t, signoffs)
         row.update({"Owner": t.owner, "Reference": t.ref, "Question": t.message, "Suggested Fix": t.resolution})
+        if notes:
+            note = notes.get(f"{t.tq_id}|{t.ref}") or {}
+            row["Engineer's Note"] = f"{note.get('text', '')} ({note.get('by', '')})" if note.get("text") else ""
         rows.append(row)
     return rows
 
@@ -439,7 +491,8 @@ def build_download(key: str, ctx: dict[str, Any]) -> tuple[bytes, str, str]:
     if key == "manifest":
         return json.dumps(manifest, indent=2, sort_keys=True).encode("utf-8"), f"Run_Manifest_Rev{rev}.json", "application/json"
     if key == "workspace":
-        return (export_workspace(result, ctx["pack"], ctx["overrides"], ctx["pins"], manifest["input_sha256"], rev),
+        return (export_workspace(result, ctx["pack"], ctx["overrides"], ctx["pins"], manifest["input_sha256"], rev,
+                                 ctx.get("notes")),
                 f"Workspace_Rev{rev}.zip", "application/zip")
     if key == "support":
         info = {"name": ctx["pack"].name, "version": ctx["pack"].version, "hash": pack_hash(ctx["pack"])}
@@ -448,8 +501,15 @@ def build_download(key: str, ctx: dict[str, Any]) -> tuple[bytes, str, str]:
 
 
 @st.cache_data(max_entries=32, show_spinner=False)
-def cached_download(result_key: str, key: str, _ctx: dict[str, Any]) -> tuple[bytes, str, str]:
+def _cached_download(result_key: str, key: str, _ctx: dict[str, Any]) -> tuple[bytes, str, str]:
     return build_download(key, _ctx)
+
+
+def cached_download(result_key: str, key: str, ctx: dict[str, Any]) -> tuple[bytes, str, str]:
+    """One file, built once per (result, kind).  The workspace also changes when a TQ note is written."""
+    if key == "workspace" and ctx.get("notes"):
+        result_key += "|" + sha256_hex(json.dumps(ctx["notes"], sort_keys=True, default=str))
+    return _cached_download(result_key, key, ctx)
 
 
 def bundle_all_name(ctx: dict[str, Any]) -> str:
@@ -510,11 +570,21 @@ def short_text(text: Any, limit: int = SHORT_TEXT) -> str:
     return f"{head} … {tail}" if tail else (head if head == body else head + " …")
 
 
-def question_details(result: SolveResult, kind: str, ref: str, text: str) -> list[tuple[str, str]]:
-    """(label, value) lines behind the (i) of one error or warning: the full text, the fix and the owner."""
+def question_details(result: SolveResult, kind: str, ref: str, text: str,
+                     note: dict | None = None) -> list[tuple[str, str]]:
+    """(label, value) lines behind the (i) of one error or warning: the full text, the fix, the owner and
+    the engineer's own note when someone wrote one."""
     lines = [("Full text", str(text).strip())]
     tq = next((t for t in result.tqs if t.tq_id == kind and str(t.ref) == str(ref)), None)
     if tq is not None:
         lines += [("Suggested fix", tq.resolution), ("Owner", tq.owner), ("Category", tq.category)]
+    if note and note.get("text"):
+        lines.append(("Engineer's note", f"{note['text']} ({note.get('by') or 'unnamed'}, {note.get('time', '')})"))
     return [(k, str(v)) for k, v in lines if v]
+
+
+def suggested_fix(result: SolveResult, kind: str, ref: str) -> str:
+    """The tool's own suggested fix of one error or warning ('' for a verifier finding without one)."""
+    tq = next((t for t in result.tqs if t.tq_id == kind and str(t.ref) == str(ref)), None)
+    return tq.resolution if tq is not None else ""
 

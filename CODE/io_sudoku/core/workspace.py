@@ -30,11 +30,14 @@ class WorkspaceState:
     manifest: dict[str, Any] = field(default_factory=dict)
     rev_label: str = "00"
     pins: dict[str, tuple[str, int]] = field(default_factory=dict)
+    notes: dict[str, Any] = field(default_factory=dict)     # engineers' notes and suggestions on the TQs
 
 
 def export_workspace(result: Any, pack: RulePack, overrides: list[Override], pins: dict[str, tuple[str, int]],
-                     mdb_sha256: str, rev_label: str) -> bytes:
-    """Zip bytes holding everything needed to continue this project later."""
+                     mdb_sha256: str, rev_label: str, notes: dict[str, Any] | None = None) -> bytes:
+    """Zip bytes holding everything needed to continue this project later.  `notes` (the engineers' own
+    notes and suggested fixes on the TQs) is added as notes.json when there is any, so the next person
+    who opens the project sees them.  Notes are information only: they never change the allocation."""
     rows = list(getattr(result, "rows", []) or [])
     allocation, _ = build_allocation(rows)
     readiness = getattr(result, "readiness", None)
@@ -50,6 +53,8 @@ def export_workspace(result: Any, pack: RulePack, overrides: list[Override], pin
         "manifest.json": json.dumps(manifest, indent=2, sort_keys=True).encode("utf-8"),
         "tqs.json": json.dumps(tqs, indent=2).encode("utf-8"),
     }
+    if notes and any(notes.values()):
+        members["notes.json"] = json.dumps(notes, indent=2, sort_keys=True, default=str).encode("utf-8")
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         for name, data in members.items():
@@ -75,7 +80,15 @@ def import_workspace(data: bytes) -> tuple[WorkspaceState | None, str]:
             if "pins.json" in names:
                 for key, value in dict(json.loads(z.read("pins.json"))).items():
                     pins[str(key)] = (str(value[0]), int(value[1]))
-            return WorkspaceState(rows, pack, overrides, dict(manifest), str(manifest.get("rev_label", "00")), pins), ""
+            notes: dict[str, Any] = {}
+            if "notes.json" in names:
+                try:
+                    loaded = json.loads(z.read("notes.json"))
+                    notes = loaded if isinstance(loaded, dict) else {}
+                except ValueError:
+                    notes = {}                       # notes are optional: a damaged file only loses them
+            return WorkspaceState(rows, pack, overrides, dict(manifest), str(manifest.get("rev_label", "00")), pins,
+                                  notes), ""
     except zipfile.BadZipFile:
         return None, "This file is not a valid workspace (it is not a zip file)."
     except Exception as exc:  # noqa: BLE001

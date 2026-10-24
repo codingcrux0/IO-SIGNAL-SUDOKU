@@ -203,15 +203,15 @@ def size_text(n: int) -> str:
 # ------------------------------------------------------------------- search, export, frames
 def filter_rows(sheet: SheetPreview, needle: str | list[str] = "", columns: list[str] | None = None,
                 mark: str = "") -> tuple[list[str], list[list[Any]], list[str]]:
-    """(columns, rows, marks) after a case-insensitive search, an optional column choice and an
-    optional redline colour.  The search looks at every column, even hidden ones.
+    """(columns, rows, marks) after a CASE-SENSITIVE search (you get exactly the tag you typed), an optional
+    column choice and an optional redline colour.  The search looks at every column, even hidden ones.
     `needle` may be several terms (for example several tags): a row is kept if it matches ANY of them."""
     terms = [needle] if isinstance(needle, str) else list(needle or [])
-    texts = [t for t in (str(x or "").strip().lower() for x in terms) if t]
+    texts = [t for t in (str(x or "").strip() for x in terms) if t]
     marks = sheet.marks or [""] * len(sheet.rows)
 
     def hit(row: list[Any]) -> bool:
-        cells = [str(v).lower() for v in row if v is not None]
+        cells = [str(v) for v in row if v is not None]
         return any(t in c for t in texts for c in cells)
 
     picked = [(r, m) for r, m in zip(sheet.rows, marks) if (not texts or hit(r)) and (not mark or m == mark)]

@@ -34,7 +34,7 @@ LOCKED_RULES: tuple[str, ...] = (
 )
 PARAM_RANGES = {"spare_pct": (0, 30), "future_pct": (0, 30), "end_reserve_bps": (0, 8), "empty_bp_min": (0, 8)}
 OVERRIDE_KEYS = ("io_aliases", "high_current_keywords", "high_current_codes", "instrument_profiles",
-                 "segregation_families", "extra_cabinets")
+                 "segregation_families", "extra_cabinets", "project_rules")
 _CABINET_FIELDS = ("marshalling", "system", "controller", "tech_room", "loc", "area5", "unit", "cabinet_seq", "ctrl_seq")
 _FAMILIES = ("A", "B", "neutral")
 
@@ -114,6 +114,10 @@ def _validate_override(key: str, value: Any) -> list[str]:
                 out.append("Segregation codes must be 1 to 20 characters.")
             if family not in _FAMILIES:
                 out.append(f"Segregation code '{code}' must map to A, B or neutral.")
+    elif key == "project_rules":
+        from io_sudoku.core.projectrules import validate_rule
+        for rule in list(value):
+            out.extend(validate_rule(rule))
     elif key == "extra_cabinets":
         for cab in list(value):
             if not isinstance(cab, dict) or any(f not in cab for f in _CABINET_FIELDS):
@@ -151,6 +155,8 @@ def apply_pack(pack: RulePack, cfg: Config) -> Config:
                 bucket[:] = [c for c in bucket if c.upper() != up]
             {"A": a, "B": b, "neutral": n}[family].append(up)
         changes.update(a_codes=tuple(a), b_codes=tuple(b), neutral_codes=tuple(n))
+    if "project_rules" in ov:
+        changes["project_rules"] = tuple(copy.deepcopy(list(ov["project_rules"])))
     result.rules = replace(rules, **changes)
     if "extra_cabinets" in ov:
         have = {match_key(c.marshalling) for c in result.cabinets}

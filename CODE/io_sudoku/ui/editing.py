@@ -76,6 +76,25 @@ class Target:
     col: int | None
     search: str
     why: str
+    show: tuple[str, ...] = ()               # search mode: the columns worth showing first (by field name)
+
+
+# TQs about a whole cable: the editor lists EVERY row of the cable (the problem is between those rows).
+CABLE_TQS = ("MIXED-SEGREGATION", "CABLE-SIZE-CONFLICT", "CABLE-TOO-LARGE", "CABLE-SIZE-INFERRED", "BAD-CABLE-SIZE",
+             "CABLE-SIZE-ROUNDED", "HIGH-CURRENT-VERIFY", "CAPACITY-OVERFLOW", "PIN-UNSATISFIABLE")
+COLUMN_TQS = ("MISSING-COLUMN", "COLUMN-FUZZY-MATCHED")
+_PER_CONTROLLER = re.compile(r"^[A-Z0-9-]+/(AIR|AOR|DIR|DOR)$", re.I)
+
+
+@dataclass(frozen=True)
+class Fix:
+    """Where a TQ is fixed.  kind: 'edit' (a cell, a row or the rows of a cable), 'cabinet' (a whole cabinet:
+    open it on Cabinet Layout), 'place' (a page section, `place` is its search label) or 'none'."""
+    kind: str
+    target: Target | None = None
+    cabinet: str = ""
+    place: str = ""
+    why: str = ""
 
 
 def _header_text(value: Any, index: int) -> str:
@@ -111,13 +130,14 @@ def read_editable(data: bytes) -> list[EditSheet]:
 
 
 def find_rows(sheet: EditSheet, needle: str = "", row_number: int | None = None) -> list[tuple[int, tuple[Any, ...]]]:
-    """Rows containing `needle` (any cell, case-insensitive), or the one row asked for."""
+    """Rows containing `needle` in any cell, or the one row asked for.  CASE-SENSITIVE on purpose: 'FT-1'
+    does not find 'ft-1', so you land on exactly the cell you typed."""
     if row_number:
         return [r for r in sheet.rows if r[0] == row_number]
-    text = (needle or "").strip().casefold()
+    text = (needle or "").strip()
     if not text:
         return list(sheet.rows)
-    return [r for r in sheet.rows if any(text in str(v).casefold() for v in r[1] if v is not None)]
+    return [r for r in sheet.rows if any(text in str(v) for v in r[1] if v is not None)]
 
 
 def typed_value(text: Any, old: Any) -> Any:
@@ -233,3 +253,55 @@ def cell_for_tq(tq_id: str, ref: str, index: RowIndex, quarantined: list[Any] | 
     if where is None:
         return Target(None, None, None, ref or "", why)
     return Target(where[0], where[1], col, "", why)
+
+
+def _cell_text(sheets: list[EditSheet], where: tuple[str, int], col: int | None) -> str:
+    """The text of one cell exactly as it is in the file ('' if unknown)."""
+    sheet = next((x for x in sheets if x.name == where[0]), None)
+    values = sheet.row(where[1]) if sheet else None
+    if values is None or col is None or col >= len(values) or values[col] is None:
+        return ""
+    return str(values[col]).strip()
+
+
+def where_to_fix(tq_id: str, ref: str, index: RowIndex, sheets: list[EditSheet], rows: list[dict[str, Any]],
+                 quarantined: list[Any] | None = None, nth: int = 0) -> Fix:
+    """Where the Edit button of a TQ (or of a verifier warning) should take you.  Never a search that finds
+    nothing: a question that is not about a cell of the file opens the cabinet or the page it is about."""
+    why = f"{tq_id} · {ref or '(no tag)'}"
+    key = match_key(ref) or ""
+    if tq_id == "PROJECT-RULE-BROKEN":
+        return Fix("place", place="Rules › Project Columns And Constraints",
+                   why="This is about a project rule: see which signals break it on the Rules page.")
+    if tq_id in CABLE_TQS and key in index.cables:
+        cable_col = index.mapping.get("cable_no")
+        text = _cell_text(sheets, index.cables[key], cable_col.index if cable_col else None)
+        if text:
+            field = FIELD_FOR_TQ.get(tq_id)
+            show = tuple(dict.fromkeys(f for f in ("tag", "cable_no", field, "pair_no") if f))
+            return Fix("edit", Target(index.cables[key][0], None, None, text, why, show))
+    target = cell_for_tq(tq_id, ref, index, quarantined, nth)
+    if target.row is not None:
+        return Fix("edit", target)
+    if tq_id in COLUMN_TQS:
+        return Fix("place", place="Upload › Column Mapping", why="This is about a column, not a cell: map it on the Upload page.")
+    cabinets = sorted({str(r.get("Electronic/ Marshalling Cabinet")) for r in rows} - {"-", "None"})
+    by_system: dict[str, str] = {}
+    for r in rows:                                       # a system cabinet -> its first marshalling cabinet
+        name, cab = match_key(str(r.get("System Cabinet"))) or "", str(r.get("Electronic/ Marshalling Cabinet"))
+        if cab in cabinets and (name not in by_system or cab < by_system[name]):
+            by_system[name] = cab
+    words = (ref or "").split()
+    first = match_key(words[0]) if words else ""
+    for cab in cabinets:                                 # 'P30-DCM-32001-01' or 'P30-DCM-32001-01 001-CBP-1 ch 3'
+        if match_key(cab) in (key, first):
+            return Fix("cabinet", cabinet=cab, why=f"This is about cabinet {cab} as a whole, not one cell of your file.")
+    for name in (key, first):
+        if name and name in by_system:
+            cab = by_system[name]
+            return Fix("cabinet", cabinet=cab, why=f"This is about cabinet {ref} as a whole, not one cell of your file.")
+    if _PER_CONTROLLER.match((ref or "").strip()) or tq_id == "SPARE-SHORTFALL":
+        return Fix("place", place="Solve › Wired Spares Per Controller",
+                   why="This is about the wired spares of one controller, not one cell of your file.")
+    return Fix("none", why="This is not about one cell of your file, so there is nothing to edit for it. "
+                            "Read the suggested fix (hover the i).")

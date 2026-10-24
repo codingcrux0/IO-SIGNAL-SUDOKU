@@ -68,6 +68,7 @@ class RulesCfg:
     high_current_codes: tuple[str, ...] = ("XYV", "ZYV", "SOV")
     instrument_profiles: dict[str, str] = field(default_factory=dict)
     out_of_scope_keywords: tuple[str, ...] = ("irc", "mcc")
+    project_rules: tuple[dict[str, Any], ...] = ()   # project columns and constraints (checked after the solve)
 
     def usable_channels(self) -> int:
         """Channels per cabinet available to field cables: 384 - alarm baseplate - end reserve."""

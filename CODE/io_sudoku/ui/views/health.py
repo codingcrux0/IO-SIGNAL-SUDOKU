@@ -4,7 +4,7 @@ from __future__ import annotations
 import streamlit as st
 
 from io_sudoku.core.healthcheck import audit_allocation, health_report_bytes, scorecard
-from io_sudoku.ui import ui_logic
+from io_sudoku.ui import state, ui_logic
 from io_sudoku.ui.views._viewer import file_viewer
 
 
@@ -12,12 +12,13 @@ def _run_audit() -> None:
     s = st.session_state
     uploaded = s.get("audit_uploader")
     if uploaded is None:
-        s["health"] = None
+        state.flash("info", "Choose an allocation workbook first.", "health")
         return
     report = audit_allocation(uploaded.getvalue(), s["result"].cfg_used if s["result"] is not None else None)
     seconds = ((s["result"].stages_ms.get("total", 0.0) if s["result"] is not None else 0.0)) / 1000.0
     card = scorecard(report, s["result"], seconds) if (s["result"] is not None and report.rows) else None
-    s["health"] = {"report": report, "card": card, "name": uploaded.name}
+    s["health"] = {"report": report, "card": card, "name": uploaded.name, "bytes": uploaded.getvalue()}   # kept: the
+    # upload box forgets its file when you visit another page, the viewer below must not
 
 
 def render() -> None:
@@ -26,6 +27,7 @@ def render() -> None:
     st.caption("Upload any IO allocation workbook, including one made by hand, and see which rules it breaks.")
     st.file_uploader("Allocation Workbook (.xlsx)", type=["xlsx"], key="audit_uploader")
     st.button("Run Health Check", key="audit_run", on_click=_run_audit, type="primary")
+    state.show_flash("health")
     health = s["health"]
     if not health:
         st.info("No audit yet. Choose a workbook and press Run Health Check.")
@@ -66,8 +68,10 @@ def render() -> None:
     if right.toggle("View Here", key="health_view_report", help="Open the health report in the page."):
         file_viewer(data, "Allocation_Health_Report.xlsx", "health_report")
     if st.toggle(f"View The Uploaded Workbook ({ui_logic.clip(health['name'], 40)})", key="health_view_upload"):
-        uploaded = s.get("audit_uploader")
-        if uploaded is not None:
-            file_viewer(uploaded.getvalue(), uploaded.name, "health_upload")
+        data = health.get("bytes")
+        if data is None and s.get("audit_uploader") is not None:      # an audit made before the bytes were kept
+            data = s["audit_uploader"].getvalue()
+        if data:
+            file_viewer(data, health["name"], f"health_upload_{ui_logic.sha256_hex(data)[:8]}")
         else:
-            st.info("Choose the workbook again to view it.")
+            st.info("Run the health check again to view the workbook.")
