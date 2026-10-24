@@ -330,8 +330,11 @@ def kpi_cards(result: SolveResult) -> list[tuple[str, str]]:
 SPARES_ANCHOR = "wired-spares"
 # Where each summary box on the Solve view leads: ('view', name) opens a view, ('anchor', id) scrolls the page.
 KPI_LINKS: dict[str, tuple[str, str]] = {
-    "Field Signals": ("view", "Grid"), "Wired Spares": ("anchor", SPARES_ANCHOR), "Cabinets Used": ("view", "Drawings"),
-    "Cabinet Alarms": ("view", "Grid"), "TQs Raised": ("view", "TQ Board"), "Spare Compliance": ("anchor", SPARES_ANCHOR)}
+    "Field Signals": ("view", "Cabinet Layout"), "Wired Spares": ("anchor", SPARES_ANCHOR),
+    "Cabinets Used": ("view", "Cabinet Layout"), "Cabinet Alarms": ("view", "Cabinet Layout"),
+    "TQs Raised": ("view", "TQ Board"), "Spare Compliance": ("anchor", SPARES_ANCHOR)}
+# The tab of Cabinet Layout each box opens (the map for signals and alarms, the drawings for cabinets).
+KPI_TABS: dict[str, str] = {"Field Signals": "Slot Map", "Cabinet Alarms": "Slot Map", "Cabinets Used": "Front & Rear Drawings"}
 
 
 def readiness_text(result: SolveResult) -> tuple[str, list[str]]:

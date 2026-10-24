@@ -225,11 +225,14 @@ def test_summary_boxes_open_their_views():
     at = run("Solve", sample=True)
     at.session_state["view"] = "Solve"
     at.run()
-    for key, view in (("kpigo_tqsraised", "TQ Board"), ("kpigo_fieldsignals", "Grid"), ("kpigo_cabinetsused", "Drawings")):
+    for key, view, tab in (("kpigo_tqsraised", "TQ Board", None), ("kpigo_fieldsignals", "Cabinet Layout", "Slot Map"),
+                           ("kpigo_cabinetsused", "Cabinet Layout", "Front & Rear Drawings")):
         at.session_state["view"] = "Solve"
         at.run()
         at.button(key=key).click().run()
         assert not at.exception and at.session_state["view"] == view
+        if tab:
+            assert at.session_state["cab_tab"] == tab
 
 
 def test_warnings_must_be_signed_off_before_issue_ready():
@@ -260,9 +263,32 @@ def test_approve_all_needs_the_checkbox():
 
 
 def test_drawings_are_shown_in_frames():
-    at = run("Drawings", sample=True)
-    at.session_state["view"] = "Drawings"
+    at = run("Cabinet Layout", sample=True)
+    at.session_state["view"] = "Cabinet Layout"
     at.run()
     assert not at.exception, [e.value for e in at.exception]
     frames = at.get("iframe")
     assert len(frames) == 2
+
+
+def test_cabinet_layout_keeps_map_drawings_trace_and_pack():
+    at = run("Cabinet Layout", sample=True)
+    at.session_state["view"] = "Cabinet Layout"
+    at.run()
+    assert not at.exception, [e.value for e in at.exception]
+    assert len(at.get("iframe")) == 2                                        # front and rear drawings
+    assert any("iosg-grid" in str(h.proto) for h in at.get("html"))          # the slot map
+    assert [s.label for s in at.selectbox].count("Cabinet") == 1             # one shared cabinet picker
+    assert at.selectbox(key="why_tag") is not None                           # Why Is It Here?
+    assert any(t.label == "Show All Cabinet Drawings" for t in at.toggle)    # the printable pack, renamed
+    at.toggle(key="draw_view_drawings").set_value(True).run()
+    assert not at.exception
+
+
+def test_old_grid_and_drawings_links_open_cabinet_layout():
+    for old, tab in (("Grid", "Slot Map"), ("Drawings", "Front & Rear Drawings")):
+        at = AppTest.from_file(APP, default_timeout=60)
+        at.query_params["view"] = old
+        at.run()
+        assert not at.exception and at.session_state["view"] == "Cabinet Layout"
+        assert at.session_state["cab_tab"] == tab

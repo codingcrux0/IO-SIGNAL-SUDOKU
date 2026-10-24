@@ -26,7 +26,7 @@ def _kpi_boxes(result) -> None:
                 with st.container(key=f"kpicard_{slug}"):
                     st.markdown(theme.kpi_card_html(label, value, f"Open {target}"), unsafe_allow_html=True)
                     st.button(f"{label}: {value}. Open {target}", key=f"kpigo_{slug}", on_click=state.go_to,
-                              args=(target,))
+                              args=(target, ui_logic.KPI_TABS.get(label)))
             else:
                 st.markdown(theme.kpi_html([(label, value)]), unsafe_allow_html=True)
 

@@ -90,8 +90,9 @@ def download_button(spec: ui_logic.DownloadSpec, ctx: dict[str, Any], result_key
     st.download_button(spec.label, data=data, file_name=name, mime=mime, key=f"{key_prefix}_{spec.key}")
 
 
-def file_card(spec: ui_logic.DownloadSpec, ctx: dict[str, Any], result_key: str, key_prefix: str = "dl") -> None:
-    """A download button with a "View Here" switch that opens the same file in the page."""
+def file_card(spec: ui_logic.DownloadSpec, ctx: dict[str, Any], result_key: str, key_prefix: str = "dl",
+              view_label: str = "View Here") -> None:
+    """A download button with a "View Here" switch (or `view_label`) that opens the same file in the page."""
     from io_sudoku.ui.views._viewer import file_viewer
 
     try:
@@ -101,7 +102,7 @@ def file_card(spec: ui_logic.DownloadSpec, ctx: dict[str, Any], result_key: str,
         return
     left, right = st.columns([3, 2], vertical_alignment="center")
     left.download_button(spec.label, data=data, file_name=name, mime=mime, key=f"{key_prefix}_{spec.key}", on_click="ignore")
-    if right.toggle("View Here", key=f"{key_prefix}_view_{spec.key}", help=f"Open {spec.title} in the page without downloading it."):
+    if right.toggle(view_label, key=f"{key_prefix}_view_{spec.key}", help=f"Open {spec.title} in the page without downloading it."):
         file_viewer(data, name, f"{key_prefix}_v_{spec.key}_{result_key[:8]}", trusted_html=True)
 
 
@@ -112,7 +113,7 @@ def main_ctx() -> dict[str, Any]:
 
 
 def cabinet_picker(rows: list[dict[str, Any]], key: str) -> str | None:
-    """A cabinet dropdown whose choice is shared by Grid and Drawings (and the URL)."""
+    """The cabinet dropdown of Cabinet Layout; its choice is kept in the URL too."""
     names = ui_logic.cabinet_names(rows)
     if not names:
         st.info("This result has no cabinets to show.")

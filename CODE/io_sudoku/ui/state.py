@@ -17,9 +17,11 @@ from io_sudoku.core.rulepack import default_pack, pack_hash
 from io_sudoku.samples import sample_mdb_bytes
 from io_sudoku.ui import ui_logic
 
-VIEWS = ("Upload", "Preflight", "Solve", "Grid", "TQ Board", "Health", "Drawings", "Parts", "Revision", "Simulator", "Rules",
+VIEWS = ("Upload", "Preflight", "Solve", "Cabinet Layout", "TQ Board", "Health", "Parts", "Revision", "Simulator", "Rules",
          "Files")
-OLD_VIEW_NAMES = {"Downloads": "Files"}      # old links keep working
+OLD_VIEW_NAMES = {"Downloads": "Files", "Grid": "Cabinet Layout", "Drawings": "Cabinet Layout"}   # old links keep working
+CAB_TAB_KEY = "cab_tab"                      # which tab of Cabinet Layout is open
+OLD_VIEW_TABS = {"Grid": "Slot Map", "Drawings": "Front & Rear Drawings"}
 SAMPLE_NAME = "Sample_MDB.xlsx"
 
 KEYS = {"mdb_bytes": None, "mdb_name": None, "mdb_sha": None, "template_bytes": None, "pack": None, "overrides": [],
@@ -46,6 +48,8 @@ def init_state() -> None:
     if not s.get("_url_read"):
         s["_url_read"] = True
         view = st.query_params.get("view")
+        if view in OLD_VIEW_TABS:
+            s[CAB_TAB_KEY] = OLD_VIEW_TABS[view]
         view = OLD_VIEW_NAMES.get(view, view)
         if view in VIEWS:
             s["view"] = view
@@ -181,10 +185,12 @@ def approve_all_warnings() -> None:
     flash("success", f"{len(keys):,} warnings approved.")
 
 
-def go_to(view: str) -> None:
-    """Open another view (used by the clickable summary boxes)."""
+def go_to(view: str, tab: str | None = None) -> None:
+    """Open another view (used by the clickable summary boxes); `tab` opens a tab of Cabinet Layout."""
     if view in VIEWS:
         st.session_state["view"] = view
+        if tab:
+            st.session_state[CAB_TAB_KEY] = tab
 
 
 def on_sample() -> None:

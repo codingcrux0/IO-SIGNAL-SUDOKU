@@ -7,11 +7,11 @@ st.set_page_config(page_title="IO Signal Sudoku", page_icon="\U0001F9E9", layout
 
 from io_sudoku.ui import state, theme                                    # noqa: E402  (after set_page_config)
 from io_sudoku.ui.errors import error_boundary                           # noqa: E402
-from io_sudoku.ui.views import (downloads, drawings, grid, health, parts, preflight, revision, rules, simulator,  # noqa: E402
+from io_sudoku.ui.views import (cabinets, downloads, health, parts, preflight, revision, rules, simulator,  # noqa: E402
                                 solve, tq, upload)
 
-VIEW_MODULES = {"Upload": upload, "Preflight": preflight, "Solve": solve, "Grid": grid, "TQ Board": tq, "Health": health,
-                "Drawings": drawings, "Parts": parts, "Revision": revision, "Simulator": simulator, "Rules": rules,
+VIEW_MODULES = {"Upload": upload, "Preflight": preflight, "Solve": solve, "Cabinet Layout": cabinets, "TQ Board": tq,
+                "Health": health, "Parts": parts, "Revision": revision, "Simulator": simulator, "Rules": rules,
                 "Files": downloads}
 
 
