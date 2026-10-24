@@ -1,0 +1,1 @@
+*.xlsx -filter -diff -merge binary
