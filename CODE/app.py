@@ -35,7 +35,10 @@ def main() -> None:
         st.divider()
         st.checkbox("I understand this clears everything", key="confirm_reset")
         st.button("Reset Session", on_click=state.reset_session, disabled=not st.session_state["confirm_reset"])
-        nav.render_targets()                     # hidden: what the links inside sentences press
+        try:                                     # hidden: what the links inside sentences press
+            nav.render_targets()
+        except Exception:  # noqa: BLE001 - only the links stop working; the page must never break
+            pass
     view = st.session_state["view"]
     st.markdown('<a class="iosg-skip" href="#iosg-main">Skip to main content</a><span id="iosg-main"></span>'
                 + ('' if view == "Upload" else '<h1 class="iosg-sr">IO Signal Sudoku</h1>'), unsafe_allow_html=True)

@@ -129,19 +129,6 @@ def render() -> None:
                  help="Type a few letters: the closest pages and sections are listed as you type. Pick one to go there.")
 
 
-def go(place: Place) -> None:
-    """Open a place: its view, its tab, then scroll to its heading (or to the top of the view)."""
-    from io_sudoku.ui import state
-    s = st.session_state
-    if place.view in state.NEEDS_FILE and not s.get("mdb_bytes"):
-        state.flash("info", "Upload a file (or load the sample data) first.")
-        return
-    s["view"] = place.view
-    if place.tab_key:
-        s[place.tab_key] = place.tab
-    s["scroll_to"] = place.heading or "__top__"
-
-
 def on_pick() -> None:
     from io_sudoku.ui import state
     s = st.session_state
@@ -156,7 +143,8 @@ def on_pick() -> None:
             return
         state.flash("info", f"Closest match for “{picked}”: {near}")
         picked = near
-    go(BY_LABEL[picked])
+    from io_sudoku.ui import nav
+    nav.go(BY_LABEL[picked])
 
 
 def scroll_page(heading: str, nonce: int) -> str:

@@ -3,7 +3,7 @@
 How it works, without reloading the page (a reload would start a new session and lose the upload):
   * `link()` writes an ordinary Markdown link whose address is '#go-<slug>' of a search place.
   * One hidden button per place ('navgo_<slug>') sits in a hidden box in the sidebar; its callback is
-    search.go(place) - the same jump the search bar makes.
+    go(place) - the same jump the search bar makes.
   * A tiny invisible frame adds ONE click listener to the app page: a click on a '#go-' link presses
     the matching hidden button.  So a link costs one normal re-run, exactly like a sidebar click.
 Only sentences that send you somewhere get a link; everything else stays plain text.
@@ -39,11 +39,25 @@ def link(text: str, view: str, heading: str = "") -> str:
     return f"[{clean}](#go-{slug(_place(view, heading).label)})"
 
 
+def go(place: search.Place) -> None:
+    """Open a place: its view, its tab, then scroll to its heading (or to the top of the view).
+    Used by the links and by the search bar."""
+    from io_sudoku.ui import state
+    s = st.session_state
+    if place.view in state.NEEDS_FILE and not s.get("mdb_bytes"):
+        state.flash("info", "Upload a file (or load the sample data) first.")
+        return
+    s["view"] = place.view
+    if place.tab_key:
+        s[place.tab_key] = place.tab
+    s["scroll_to"] = place.heading or "__top__"
+
+
 def render_targets() -> None:
     """The hidden buttons the links press, and the listener frame (call once per run, in the sidebar)."""
     with st.container(key=BOX_KEY):
         for key, place in SLUGS.items():
-            st.button(place.label, key=f"navgo_{key}", on_click=search.go, args=(place,))
+            st.button(place.label, key=f"navgo_{key}", on_click=go, args=(place,))
     st.iframe(LISTENER, height=1)
 
 
