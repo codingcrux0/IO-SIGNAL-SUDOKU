@@ -5,7 +5,8 @@ A deterministic DeltaV IO allocation solver. Give it the customer IO list (MDB, 
 - the 76-column **IO Allocation** workbook (every signal placed on a cabinet, CIOC, baseplate and channel),
 - a **TQ register** (Technical Queries: every question a human must answer, with a suggested fix),
 - a **revision impact report** (Added / Deleted / Moved / Renamed) that keeps unchanged cables where they were,
-- a Streamlit dashboard with cabinet grids, drawings, a parts list, a health check and governed rule changes.
+- a Streamlit dashboard with cabinet grids, drawings, rule check and rule impact, a parts list, a revision simulator
+  and governed rule changes.
 
 **No AI is used to allocate.** The same input always gives byte-identical output (a SHA-256 fingerprint proves it).
 The optional AI box only drafts rule proposals; a different person must approve them, and the AI never sees your data.
@@ -54,13 +55,25 @@ Moving around and fixing things:
 - **Rule Check**: pick any cells (or click a slot or drawing cell on Cabinet Layout) and see a live log of every rule
   and constraint that applies to each: ✓ met, ✗ broken, ▲ to check, plus answers, pins and the solver's decisions.
   Point at **Signal Path** for the way from the field device to the controller.
+- **Rule Impact**: Rule Check the other way round. Pick one rule or constraint (locked rules, pack settings, your
+  project rules, answers and pins, open questions) and see every cell, CHARM type and signal it touches, met or broken:
+  counts by cabinet and CHARM type, a cabinet map with those cells lit up (red = broken, dashed yellow = needs a look),
+  and the full list, from which picked cells open on Rule Check. It uses the same checks as Rule Check, so they agree.
 - **Cabinet Layout**: bigger slots and drawings; pick **All Cabinet Drawings** in the cabinet list to see every
-  cabinet's front and rear in one scroll box.
+  cabinet's front and rear in one scroll box, with **Why Is It Here?** for any tag below it. Cabinet alarms show a red
+  **!**, and wired spares show their number in white on a small dark label.
 - **Allocate buttons** are blue when something changed and turn grey (**✓ Allocation Up To Date**) once the
   allocation matches your current inputs. An out-of-date result is always shown as `DRAFT`.
 - **Revision → Revision History**: every allocation of the session is saved (Original, Revision 1, 2 ...), with a
   summary; rename them, compare any two or more (Added / Deleted / Moved / Renamed), **Undo Last Revision** (its
   file, answers, pins, rules and sign-offs come back) or delete chosen revisions - both ask first.
+- **Revision → Revision Simulator**: makes a pretend client revision (a share of the tags deleted, renamed, added or
+  moved to another pair; the same seed always gives the same revision) and handles it two ways: starting again from
+  scratch, and IO Sudoku keeping unchanged tags in place. It shows the tags moved, the estimated rework hours (they
+  update as you change the minutes per change), a chart of where the hours go, the moved tags, and **Run For Every
+  Size** (1-20%). Download the results or the pretend revision itself to try on Compare With A New MDB.
+- Problems in the file are the questions on the **TQ Board** (Preflight shows the data quality score only). The
+  assumptions the tool made are listed in the downloaded TQ register and summary, not on screen.
 - **Revision → Compare With A New MDB**: each count has **View In Detail**; pick a signal to see every column that
   changed, the rules and decisions behind its new place, and open it on Rule Check. The impact report also opens as a
   web page in the browser (**View In The Browser**, or download the `.html`).
@@ -75,7 +88,7 @@ oversized project, and files that cannot be read at all. `test_cases/README.md` 
 the test suite checks every file still gives that result. Rebuild them with `.venv/bin/python scripts/make_test_cases.py`.
 
 Every output can be opened in the browser before you download it: the **Files** view (and a **View Here** switch on
-Parts, Cabinet Layout, Revision and Health) shows workbooks as searchable tables, pages as pages, JSON as a tree and ZIP
+Parts, Cabinet Layout and Revision) shows workbooks as searchable tables, pages as pages, JSON as a tree and ZIP
 bundles file by file. The viewer is read-only; **Download This View (.csv)** exports exactly the rows you filtered, and
 **Download Everything (.zip)** gets every file at once.
 
@@ -95,7 +108,7 @@ Run `--help` on any command for its options.
 ## Test it
 
 ```bash
-.venv/bin/python -m pytest          # about 670 tests: rules, golden output, fuzzing, scale, test cases, UI
+.venv/bin/python -m pytest          # about 690 tests: rules, golden output, fuzzing, scale, test cases, UI
 ```
 
 ## Layout

@@ -189,11 +189,15 @@ def make_revision(mdb_source: Any, pct: float = 5.0, seed: int = 1) -> bytes:
     return make_revision_with_edits(mdb_source, pct, seed)[0]
 
 
-def _hours(report: ImpactReport, m: ReworkMinutes) -> float:
+def rework_hours(report: ImpactReport, m: ReworkMinutes) -> float:
+    """Estimated hours of rework for the changes in `report` at `m` minutes per change."""
     c = report.counts
     minutes = (c.get("Moved", 0) * m.per_moved_tag + c.get("Renamed", 0) * m.per_renamed_tag
                + c.get("Added", 0) * m.per_added_tag + c.get("Deleted", 0) * m.per_deleted_tag)
     return round(minutes / 60.0, 2)
+
+
+_hours = rework_hours
 
 
 def simulate_churn(mdb_source: Any, pct: float = 5.0, seed: int = 1, minutes: ReworkMinutes = ReworkMinutes(),

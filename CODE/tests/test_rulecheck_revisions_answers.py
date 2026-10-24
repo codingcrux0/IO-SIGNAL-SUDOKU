@@ -283,16 +283,3 @@ def test_signed_off_warnings_link_to_exactly_those():
     at.button(key="navgo_tq-board-warnings-already-signed-off").click().run()
     assert at.session_state["view"] == "TQ Board" and at.session_state["signoff_show"] == "Signed Off"
     assert not at.exception
-
-
-def test_health_keeps_the_uploaded_workbook_for_the_viewer():
-    from io_sudoku.core.allocio import allocation_bytes
-    from io_sudoku.core.healthcheck import audit_allocation
-    at = _app("Health")
-    data = allocation_bytes(at.session_state["result"].rows)[0]
-    at.session_state["health"] = {"report": audit_allocation(data), "card": None, "name": "Human.xlsx", "bytes": data}
-    at.run()                                                              # the upload box is empty (another page was open)
-    at.toggle(key="health_view_upload").set_value(True).run()
-    assert not at.exception, [e.value for e in at.exception]
-    assert not any("again" in i.value for i in at.info)                  # no "upload it again"
-    assert any("Human.xlsx" in c.value for c in at.caption)

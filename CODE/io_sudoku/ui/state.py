@@ -19,27 +19,33 @@ from io_sudoku.samples import sample_mdb_bytes
 from io_sudoku.ui import editing, history, ui_logic
 from io_sudoku.ui.nav import link
 
-VIEWS = ("Upload", "Edit File", "Preflight", "Solve", "Cabinet Layout", "Rule Check", "TQ Board", "Health", "Parts", "Revision",
-         "Simulator", "Rules", "Files")
+VIEWS = ("Upload", "Edit File", "Preflight", "Solve", "Cabinet Layout", "Rule Check", "Rule Impact", "TQ Board", "Parts",
+         "Revision", "Rules", "Files")
 NEEDS_FILE = ("Edit File",)                  # views that are greyed out until a file is uploaded
-OLD_VIEW_NAMES = {"Downloads": "Files", "Grid": "Cabinet Layout", "Drawings": "Cabinet Layout"}   # old links keep working
 CAB_TAB_KEY = "cab_tab"                      # which tab of Cabinet Layout is open
-OLD_VIEW_TABS = {"Grid": "Slot Map", "Drawings": "Front & Rear Drawings"}
+REV_TAB_KEY = "rev_tab"                      # which tab of Revision is open
+SIM_TAB = "Revision Simulator"
+# Old links keep working: a page that became a tab opens that tab; a removed page (Health) opens Upload.
+OLD_VIEW_NAMES = {"Downloads": "Files", "Grid": "Cabinet Layout", "Drawings": "Cabinet Layout", "Simulator": "Revision"}
+OLD_VIEW_TABS = {"Grid": (CAB_TAB_KEY, "Slot Map"), "Drawings": (CAB_TAB_KEY, "Front & Rear Drawings"),
+                 "Simulator": (REV_TAB_KEY, SIM_TAB)}
 SAMPLE_NAME = "Sample_MDB.xlsx"
 
 KEYS = {"mdb_bytes": None, "mdb_name": None, "mdb_sha": None, "template_bytes": None, "pack": None, "overrides": [],
         "pins": {}, "column_overrides": {}, "rev_label": "00", "result": None, "result_key": None, "stale": False,
         "last_good": None, "rev_a_rows": None, "rev_b_bytes": None, "impact": None, "proposals": [], "lite": False,
         "selected_cabinet": None, "tq_page": 0, "tq_sev": [], "ui_error": None, "view": VIEWS[0],
-        "confirm_reset": False, "health": None, "rev_b_result": None, "flash": None, "rev_key": "", "sim": None,
+        "confirm_reset": False, "rev_b_result": None, "flash": None, "rev_key": "", "sim": None, "sim_sweep": None,
         "rule_preview": None, "files_pick": None, "signoffs": {}, "solve_key": None,
         "history": [], "edit_target": None, "edit_return": None, "mdb_original": None, "edit_log": [], "scroll_to": None,
         "rc_cells": [], "tq_notes": {}, "suggestions": [], "chat": None, "answer_check": None, "confirm": None,
-        "inputs_by_key": {}, "blobs": {}}
+        "inputs_by_key": {}, "blobs": {}, "ri_pick": None,
+        "sim_pct": 5, "sim_seed": 1, "sim_moved": 15.0, "sim_renamed": 3.0, "sim_added": 10.0, "sim_deleted": 5.0}
 STALE_REASON = "Your inputs changed after this allocation (for example the file was edited). Re-allocate to check them."
 
 # Widget-bound keys must survive a view change (Streamlit forgets a widget's value when the widget is not drawn).
-_PERSIST = ("lite", "rev_label", "tq_page", "selected_cabinet", "files_pick")
+_PERSIST = ("lite", "rev_label", "tq_page", "selected_cabinet", "files_pick", "sim_pct", "sim_seed", "sim_moved",
+            "sim_renamed", "sim_added", "sim_deleted")
 
 
 def init_state() -> None:
@@ -54,15 +60,25 @@ def init_state() -> None:
         s[key] = s[key]
     if not s.get("_url_read"):
         s["_url_read"] = True
-        view = st.query_params.get("view")
-        if view in OLD_VIEW_TABS:
-            s[CAB_TAB_KEY] = OLD_VIEW_TABS[view]
-        view = OLD_VIEW_NAMES.get(view, view)
-        if view in VIEWS:
-            s["view"] = view
+        _open_view(st.query_params.get("view"))
         cab = st.query_params.get("cab")
         if cab:
             s["selected_cabinet"] = cab
+    if s["view"] not in VIEWS:                    # a page that was moved or removed while this session was open
+        _open_view(s["view"])
+        if s["view"] not in VIEWS:
+            s["view"] = VIEWS[0]
+
+
+def _open_view(view: str | None) -> None:
+    """Open a view by name, also an old name (a page that became a tab opens that tab)."""
+    s = st.session_state
+    if view in OLD_VIEW_TABS:
+        tab_key, tab = OLD_VIEW_TABS[view]
+        s[tab_key] = tab
+    view = OLD_VIEW_NAMES.get(view, view)
+    if view in VIEWS:
+        s["view"] = view
 
 
 def sync_url() -> None:
@@ -88,7 +104,7 @@ def _set_mdb(data: bytes, name: str) -> None:
     sha = ui_logic.sha256_hex(data)
     if sha != s["mdb_sha"]:
         s.update(mdb_bytes=data, mdb_name=name, mdb_sha=sha, column_overrides={}, impact=None, rev_a_rows=None,
-                 signoffs={}, mdb_original=(data, name), edit_log=[], edit_target=None)
+                 signoffs={}, mdb_original=(data, name), edit_log=[], edit_target=None, sim=None, sim_sweep=None)
         mark_stale()
 
 

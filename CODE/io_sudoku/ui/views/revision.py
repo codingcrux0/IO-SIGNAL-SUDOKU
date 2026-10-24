@@ -1,5 +1,6 @@
-"""Revision: Rev A + a new MDB -> Added / Deleted / Moved / Renamed, with positions kept; and the
-Revision History of the session: every allocation is stored, named, summarised and comparable."""
+"""Revision: Rev A + a new MDB -> Added / Deleted / Moved / Renamed, with positions kept; the Revision History
+of the session (every allocation is stored, named, summarised and comparable); and the Revision Simulator
+(a pretend client revision: how much rework starting again would cost, versus keeping positions)."""
 from __future__ import annotations
 
 import streamlit as st
@@ -55,17 +56,20 @@ def _run_compare() -> None:
                            "Scroll down for the changes.", COMPARE_NEW)
 
 
-COMPARE_NEW, HISTORY = "Compare With A New MDB", "Revision History"
+COMPARE_NEW, HISTORY, SIMULATOR = "Compare With A New MDB", "Revision History", state.SIM_TAB
 
 
 def render() -> None:
+    from io_sudoku.ui.views import simulator
     st.header("Revision Impact")
     stale_banner("rev")
-    new_tab, history_tab = st.tabs([COMPARE_NEW, HISTORY], key="rev_tab", on_change="rerun")
+    new_tab, history_tab, sim_tab = st.tabs([COMPARE_NEW, HISTORY, SIMULATOR], key=state.REV_TAB_KEY, on_change="rerun")
     with new_tab:
         _compare_new()
     with history_tab:
         _history()
+    with sim_tab:
+        simulator.render()
 
 
 def _compare_new() -> None:

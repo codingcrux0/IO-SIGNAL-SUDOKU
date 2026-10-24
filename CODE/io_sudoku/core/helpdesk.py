@@ -106,13 +106,16 @@ PAGES = """PAGES OF THE APP (sidebar)
 Upload (file, sample data, template, workspace, column mapping) - Edit File (change cells; Undo Last Change; Delete All
 Changes) - Preflight (data quality before solving) - Solve (Run Allocation, readiness, summary boxes, Wired Spares Per
 Controller) - Cabinet Layout (Slot Map, Front & Rear Drawings, All Cabinet Drawings, Why Is It Here?; click a slot to
-check its rules) - Rule Check (pick cells; live log of every rule that applies; Signal Path) - TQ Board (Sign Off The
-Warnings with Edit buttons and the arrow for suggested fixes, All Questions with Error / Warning / Info filters and page
-buttons, Copy Questions For An Owner, Answer A Question with Verify, Pin A Cable) - Health (audit any allocation
-workbook) - Parts (bill of materials) - Revision (Compare With A New MDB with View In Detail; Revision History with
-Undo Last Revision and Delete) - Simulator (rework estimate) - Rules (Locked Rules, Propose A Rule: Settings, New
-Columns, Constraints; Review Queue; Suggested Fixes; Preview And Activate; Where It Applies) - Files (view and
-download every output). A search bar at the top jumps to any page or section."""
+check its rules) - Rule Check (pick cells; live log of every rule that applies; Signal Path) - Rule Impact (pick one
+rule or constraint; see every cell, CHARM and signal it affects, met or broken, on a highlighted cabinet map) - TQ Board
+(Sign Off The Warnings with Edit buttons and the arrow for suggested fixes, All Questions with Error / Warning / Info
+filters and page buttons, Copy Questions For An Owner, Answer A Question with Verify, Pin A Cable) - Parts (bill of
+materials) - Revision (three tabs: Compare With A New MDB with View In Detail; Revision History with Undo Last Revision
+and Delete; Revision Simulator, which makes a pretend client revision and estimates the rework saved) - Rules (Locked
+Rules, Propose A Rule: Settings, New Columns, Constraints; Review Queue; Suggested Fixes; Preview And Activate; Where It
+Applies) - Files (view and download every output). A search bar at the top jumps to any page or section.
+There is no Health page and no Simulator page any more (the simulator is a tab of Revision); problems in the
+file are the questions on the TQ Board."""
 
 
 @lru_cache(maxsize=1)

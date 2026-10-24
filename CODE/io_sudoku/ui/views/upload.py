@@ -48,8 +48,7 @@ def render() -> None:
         st.info("This file is a finished IO Allocation, not an MDB. It still works: its Field signals and cabinet "
                 "alarms are allocated again by the rules, spares are rebuilt, and rows whose values slipped out of "
                 "their columns are repaired and listed as TQs. To keep the old positions instead, use it as Rev A on "
-                f"the {link('Revision', 'Revision', 'Compare With A New MDB')} view; to check it against the rules, "
-                f"use the {link('Health', 'Health')} view.")
+                f"the {link('Revision', 'Revision', 'Compare With A New MDB')} view.")
     allocate_button("solve_upload")
     if s["ui_error"]:
         st.error(s["ui_error"])

@@ -97,7 +97,7 @@ def test_each_side_draws_192_cells_and_the_right_ciocs(base):
 def test_status_is_never_colour_alone(base):
     svg = cabinet_svg(base.rows, "P30-DCM-32001-04", "F")
     assert "url(#h-" in svg or 'data-status="Wired Spare"' in svg            # hatch pattern for wired spares
-    assert svg.count(">A</text>") == svg.count('data-status="Cabinet Alarm"') == 3
+    assert svg.count(">!</text>") == svg.count('data-status="Cabinet Alarm"') == 3          # a red '!', not a letter
     assert 'fill="none"' in svg and svg.count('class="cell"') == 192
     for colour in IO_COLOURS.values():
         assert colour.startswith("#") and len(colour) == 7

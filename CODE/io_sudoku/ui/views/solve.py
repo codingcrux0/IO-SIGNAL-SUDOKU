@@ -69,8 +69,5 @@ def render() -> None:
     # tall enough for every row (up to 30), so no scroll bar sits on top of the numbers
     st.dataframe(lines, hide_index=True, width="stretch", height=min(38 + 35 * len(lines) + 3, 38 + 35 * 30),
                  column_config={"Status": st.column_config.TextColumn(width="small")})
-    with st.expander("Assumptions Used In This Run"), st.container(height=320):
-        for a in result.assumptions:
-            st.markdown(f"**{a.id}** — {a.text}  \n*Source: {a.source}. Confirm with: {a.confirm_by}.*")
     with st.expander("Stage Timings"):
         st.dataframe([{"Stage": k, "Milliseconds": v} for k, v in result.stages_ms.items()], hide_index=True, width="stretch")

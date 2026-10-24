@@ -6,7 +6,7 @@ side has 192 cells.  Status is never shown by colour alone:
     Field          solid fill in the colour of the IO type
     Wired Spare    diagonal hatching in the IO colour
     Spare Slot     empty outline
-    Cabinet Alarm  red border and the letter A
+    Cabinet Alarm  red border and an exclamation mark
 Every cell has a tooltip (tag, status, IO type, CHARM, cable/pair).  Output is deterministic,
 all text is escaped, and there are no scripts or external references (print-friendly).
 """
@@ -105,13 +105,18 @@ def cabinet_svg(rows: list[dict[str, Any]], cabinet: str, side: str) -> str:
                 cable = f"{_s(row, 'Field Cable No')}/{_s(row, 'Field Cable Pair')}" if row and _s(row, "Field Cable No") != "-" else "no cable"
                 tip = f"{tag} · {status} · {io} · {_s(row, 'CHARM Type') if row else '-'} · {cable}"
                 charm = _s(row, "CHARM_No") if row else str((bp - 1) * SLOTS_PER_BP + ch)
-                glyph = f'<text x="{x + _CELL / 2}" y="{y + 9}" font-size="8" font-weight="700" text-anchor="middle" fill="#ff4d4f">A</text>' if status == STATUS_ALARM else ""
-                # on the hatching, white numbers with a dark outline stay readable (paint-order draws the outline first)
-                halo = ' font-weight="700" stroke="#0d1117" stroke-width="2.4" paint-order="stroke"' if status == STATUS_WIRED else ""
+                # an alarm shows a red '!' above its number; the number moves down a little to make room
+                glyph = (f'<text x="{x + _CELL / 2 - 1}" y="{y + 9}" font-size="9" font-weight="800" text-anchor="middle" '
+                         f'fill="#ff4d4f">!</text>') if status == STATUS_ALARM else ""
+                number_y = y + 17 if status == STATUS_ALARM else y + 15
+                # on the hatching, the number sits on a small dark label in white, so it reads like the slot map
+                label = (f'<rect x="{x + _CELL / 2 - 8}" y="{y + 7.5}" width="14" height="9.5" rx="2" fill="#0d1117" '
+                         f'fill-opacity=".86"/>') if status == STATUS_WIRED else ""
+                weight = ' font-weight="600"' if status == STATUS_WIRED else ""
                 out.append(f'<g class="cell" data-status="{_esc(status)}" data-slot="{_esc(f"{cabinet}~{idx}~{bp}~{ch}")}">'
                            f'<title>{_esc(tip)}</title>'
-                           f'<rect x="{x}" y="{y}" width="{_CELL - 2}" height="{_CELL - 2}" rx="3" {shape}/>'
-                           f'<text x="{x + _CELL / 2 - 1}" y="{y + 15}" font-size="8" text-anchor="middle" fill="{ink}"{halo}>{_esc(charm)}</text>{glyph}</g>')
+                           f'<rect x="{x}" y="{y}" width="{_CELL - 2}" height="{_CELL - 2}" rx="3" {shape}/>{label}'
+                           f'<text x="{x + _CELL / 2 - 1}" y="{number_y}" font-size="8" text-anchor="middle" fill="{ink}"{weight}>{_esc(charm)}</text>{glyph}</g>')
     out.append("</svg>")
     return "".join(out)
 
@@ -126,7 +131,7 @@ def _legend() -> str:
                f'<rect x="1" y="1" width="20" height="20" rx="3" fill="url(#lg)" stroke="{IO_COLOURS["AIR"]}"/>', "Wired spare (hatched)"),
         swatch('<rect x="1" y="1" width="20" height="20" rx="3" fill="none" stroke="#6b7280"/>', "Spare slot (empty outline)"),
         swatch('<rect x="1" y="1" width="20" height="20" rx="3" fill="#2b1d1d" stroke="#ff4d4f" stroke-width="2"/>'
-               '<text x="11" y="15" font-size="11" text-anchor="middle" fill="#ff4d4f">A</text>', "Cabinet alarm"),
+               '<text x="11" y="16" font-size="13" font-weight="800" text-anchor="middle" fill="#ff4d4f">!</text>', "Cabinet alarm"),
         "".join(f'<span class="key"><i style="background:{c}"></i>{io}</span>' for io, c in IO_COLOURS.items())])
 
 

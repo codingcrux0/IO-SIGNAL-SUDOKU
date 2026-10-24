@@ -9,7 +9,7 @@ from io_sudoku.core.preflight import PreflightReport, preflight
 from io_sudoku.ui import ui_logic
 from io_sudoku.ui.nav import link
 from io_sudoku.ui.state import on_sample
-from io_sudoku.ui.views._common import stale_banner, tq_table
+from io_sudoku.ui.views._common import stale_banner
 
 
 @st.cache_data(max_entries=8, show_spinner=False)
@@ -28,11 +28,12 @@ def render() -> None:
         return
     stale_banner("preflight")
     report = _preflight(s["mdb_bytes"], ui_logic.pack_json(s["pack"]), json.dumps(s["column_overrides"], sort_keys=True))
-    a, b, c = st.columns(3)
+    a, b = st.columns(2)
     a.metric("Data Quality Score", f"{report.score}/100")
     b.metric("Rows Read", f"{report.total_rows:,}")
-    c.metric("Rows Needing A Person", f"{report.needs_human:,}")
     st.progress(min(100, max(0, report.score)) / 100, text="Data quality")
+    st.caption(f"Every problem in the file becomes a question on the {link('TQ Board', 'TQ Board')} when you "
+               "allocate, with a suggested fix and an ✎ Edit button.")
     if report.auto_fixed:
         st.subheader("Fixed Automatically")
         labels = {"whitespace_fixed": "Cells with stray spaces cleaned", "io_alias_fixed": "IO type spellings normalised",
@@ -45,8 +46,3 @@ def render() -> None:
                      hide_index=True, width="stretch")
     else:
         st.info(f"No columns could be matched. Check the file on the {link('Upload', 'Upload', 'Check How Your Columns Were Understood')} view.")
-    st.subheader("Needs A Human")
-    if report.issues:
-        tq_table(ui_logic.by_severity(report.issues))
-    else:
-        st.success("Nothing here needs a person. The file is ready to allocate.")

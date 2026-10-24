@@ -90,8 +90,9 @@ def test_pin_and_stale_banner():
 
 
 def test_simulator_runs_on_the_sample():
-    at = run("Simulator", sample=True) if False else run("Upload", sample=True)
-    at.session_state["view"] = "Simulator"
+    at = run("Upload", sample=True)
+    at.session_state["view"] = "Revision"
+    at.session_state["rev_tab"] = "Revision Simulator"                 # the simulator is a tab of Revision now
     at.run()
     next(b for b in at.button if b.label == "Run Simulation").click().run()
     assert at.session_state["sim"] is not None and not at.exception

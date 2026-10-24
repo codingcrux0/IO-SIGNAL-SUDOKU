@@ -61,7 +61,7 @@ def test_details_behind_the_info_mark_have_the_full_text_fix_and_owner():
 def test_links_point_at_search_places_and_slugs_are_unique():
     assert len(nav.SLUGS) == len(search.PLACES)
     assert nav.link("TQ Board", "TQ Board", "Pin A Cable") == "[TQ Board](#go-tq-board-pin-a-cable)"
-    assert nav.link("Health", "Health", "No Such Heading") == "[Health](#go-health)"      # falls back to the page
+    assert nav.link("Parts", "Parts", "No Such Heading") == "[Parts](#go-parts)"          # falls back to the page
 
 
 def test_a_link_button_opens_the_page_tab_and_section():

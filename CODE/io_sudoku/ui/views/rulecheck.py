@@ -13,6 +13,7 @@ import streamlit as st
 
 from io_sudoku.core import cellcheck as cc
 from io_sudoku.ui import state, ui_logic
+from io_sudoku.ui.nav import link
 from io_sudoku.ui.views._common import heading, md_escape, result_or_empty
 
 CURRENT, REV_B = "Current Allocation", "Rev B Comparison"
@@ -64,6 +65,8 @@ def render() -> None:
         st.radio("Check", (CURRENT, REV_B), key="rc_source", horizontal=True,
                  help="Rev B Comparison = the new revision worked out on the Revision page.")
     result, key = _source()
+    st.caption(f"The other way round: to see every cell one rule or constraint affects, open "
+               f"{link('Rule Impact', 'Rule Impact')}.")
     _picker(result, key)
     _log(result, key)
 

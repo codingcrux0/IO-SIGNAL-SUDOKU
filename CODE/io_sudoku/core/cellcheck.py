@@ -11,7 +11,8 @@ never influences placement.  The rule numbers match verify.py (V03, V06 ...) so 
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from collections import Counter
+from dataclasses import dataclass, field
 from typing import Any
 
 from io_sudoku.core.catalog import charm_matches_io, hardware
@@ -90,11 +91,48 @@ def _family(code: str, cfg: Any) -> str | None:
     return None
 
 
-def check_cell(result: Any, row: dict[str, Any], *, overrides: list[Any] | None = None,
-               pins: dict[str, tuple[str, int]] | None = None) -> list[Check]:
-    """Every rule that applies to this row, checked against the whole allocation of `result`."""
+@dataclass
+class Context:
+    """Totals over the whole allocation that every cell's check needs; worked out once (context()) so that
+    checking every cell (Rule Impact) is as fast as checking one.  Pure counting, no decisions."""
+    families: dict[tuple[str, str], set[str]] = field(default_factory=dict)   # (cabinet, CIOC) -> A / B families
+    mates: dict[str, list[dict[str, Any]]] = field(default_factory=dict)       # cable key -> its non-alarm rows
+    field_n: Counter = field(default_factory=Counter)                          # (controller, IO type) -> Field rows
+    wired_n: Counter = field(default_factory=Counter)                          # (controller, IO type) -> wired spares
+    free: Counter = field(default_factory=Counter)                             # cabinet -> Spare Slots
+    questions: list[tuple[str, Any]] = field(default_factory=list)             # (ref key, error/warning TQ)
+
+
+def context(result: Any) -> Context:
     rows: list[dict[str, Any]] = list(getattr(result, "rows", []) or [])
     cfg = getattr(result, "cfg_used", None)
+    ctx = Context()
+    for r in rows:
+        status = r.get("Tag Status")
+        cab, controller, io = _s(r, "Electronic/ Marshalling Cabinet"), _s(r, "Controller"), _s(r, "IO Type")
+        if status == STATUS_FIELD:
+            fam = _family(_s(r, "Segregation"), cfg)
+            here = ctx.families.setdefault((cab, _s(r, "CIOC/CSLS Name")), set())
+            if fam is not None:
+                here.add(fam)
+            ctx.field_n[(controller, io)] += 1
+        elif status == STATUS_WIRED:
+            ctx.wired_n[(controller, io)] += 1
+        elif status == STATUS_SLOT:
+            ctx.free[cab] += 1
+        if status != STATUS_ALARM:
+            ctx.mates.setdefault(match_key(_s(r, "Field Cable No")) or "", []).append(r)
+    ctx.questions = [(match_key(t.ref) or "", t) for t in getattr(result, "tqs", []) or []
+                     if t.severity in ("error", "warning")]
+    return ctx
+
+
+def check_cell(result: Any, row: dict[str, Any], *, overrides: list[Any] | None = None,
+               pins: dict[str, tuple[str, int]] | None = None, ctx: Context | None = None) -> list[Check]:
+    """Every rule that applies to this row, checked against the whole allocation of `result`.
+    Pass `ctx` (from context(result)) when checking many cells of the same allocation."""
+    cfg = getattr(result, "cfg_used", None)
+    ctx = ctx if ctx is not None else context(result)
     rules = cfg.rules if cfg is not None else None
     out: list[Check] = []
     add = lambda *a: out.append(Check(*a))   # noqa: E731
@@ -129,8 +167,7 @@ def check_cell(result: Any, row: dict[str, Any], *, overrides: list[Any] | None 
     else:
         add(PASS, "V07", "CIOC 1, baseplate 1 is kept for cabinet alarms", "this slot is not on that baseplate")
     if status in (STATUS_FIELD, STATUS_WIRED, STATUS_ALARM):
-        families = {_family(_s(r, "Segregation"), cfg) for r in rows if r.get("Tag Status") == STATUS_FIELD
-                    and _s(r, "Electronic/ Marshalling Cabinet") == cab and _s(r, "CIOC/CSLS Name") == cioc_name} - {None}
+        families = ctx.families.get((cab, cioc_name), set())
         mine = _family(_s(row, "Segregation"), cfg) if status == STATUS_FIELD else None
         what = f"segregation {_s(row, 'Segregation')} (family {mine or 'neutral'})" if status == STATUS_FIELD else status
         add(PASS if len(families) <= 1 else FAIL, "V06", "Segregation A and B never share a CIOC",
@@ -157,8 +194,7 @@ def check_cell(result: Any, row: dict[str, Any], *, overrides: list[Any] | None 
 
     # ---- the cable this signal is on -----------------------------------------------------------------------
     if cable != "-" and status != STATUS_ALARM:
-        mates = [r for r in rows if (match_key(_s(r, "Field Cable No")) or "") == (match_key(cable) or "")
-                 and r.get("Tag Status") != STATUS_ALARM]
+        mates = ctx.mates.get(match_key(cable) or "", [])
         homes = {(_s(r, "Electronic/ Marshalling Cabinet"), _s(r, "CIOC/CSLS Name")) for r in mates}
         add(PASS if len(homes) == 1 else FAIL, "V05", "A cable stays on one CIOC",
             f"cable {cable} has {len(mates)} rows on {len(homes)} CIOC" + ("" if len(homes) == 1 else "s"))
@@ -179,12 +215,11 @@ def check_cell(result: Any, row: dict[str, Any], *, overrides: list[Any] | None 
     if rules is not None:
         controller = _s(row, "Controller")
         if status in (STATUS_FIELD, STATUS_WIRED) and io != "-":
-            field_n = sum(1 for r in rows if r.get("Tag Status") == STATUS_FIELD and _s(r, "Controller") == controller and _s(r, "IO Type") == io)
-            wired_n = sum(1 for r in rows if r.get("Tag Status") == STATUS_WIRED and _s(r, "Controller") == controller and _s(r, "IO Type") == io)
+            field_n, wired_n = ctx.field_n[(controller, io)], ctx.wired_n[(controller, io)]
             need = -(-field_n * rules.spare_pct // 100)
             add(PASS if wired_n >= need else FAIL, "V10", f"{rules.spare_pct}% wired spares per IO type and controller",
                 f"{controller} / {io}: {field_n} field signals need {need}; {wired_n} wired spares")
-        free = sum(1 for r in rows if _s(r, "Electronic/ Marshalling Cabinet") == cab and r.get("Tag Status") == STATUS_SLOT)
+        free = ctx.free[cab]
         need_free = rules.future_slots_required()
         add(PASS if free >= need_free else FAIL, "V14", f"{rules.future_pct}% future space per cabinet",
             f"{cab} keeps {free} Spare Slots; {need_free} are required")
@@ -216,8 +251,8 @@ def check_cell(result: Any, row: dict[str, Any], *, overrides: list[Any] | None 
         if key and (match_key(o.tag_key) or "") == key:
             add(INFO, "Answer", "An engineer's answer was applied", f"{o.field} = {o.value} (by {o.by or 'unnamed'})")
     refs = {x for x in (key, match_key(cable) or "", match_key(cab) or "") if x}
-    for t in getattr(result, "tqs", []) or []:
-        if (match_key(t.ref) or "") in refs and t.severity in ("error", "warning"):
+    for ref, t in ctx.questions:
+        if ref in refs:
             add(FAIL if t.severity == "error" else WARN, t.tq_id, "Open question", t.message)
     here = f"{cab} {bp_name} ch {ch}"
     for v in getattr(result, "violations", []) or []:

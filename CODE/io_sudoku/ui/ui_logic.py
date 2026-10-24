@@ -183,8 +183,12 @@ def _slot_text(row: dict[str, Any]) -> tuple[str, str, str]:
     return "s-spare", "", "Spare Slot"
 
 
-def cabinet_grid_html(rows: list[dict[str, Any]], cabinet: str) -> str:
-    """The 4 x 8 x 12 slot grid of one cabinet as display-only HTML (every dynamic value escaped)."""
+MARK_WORDS = {"pass": "met", "fail": "broken", "warn": "needs a look", "info": "applies (note)"}
+
+
+def cabinet_grid_html(rows: list[dict[str, Any]], cabinet: str, marks: dict[str, str] | None = None) -> str:
+    """The 4 x 8 x 12 slot grid of one cabinet as display-only HTML (every dynamic value escaped).
+    `marks` {slot id: pass | fail | warn | info} highlights those slots and dims the rest (Rule Impact)."""
     slots: dict[tuple[int, int, int], dict[str, Any]] = {}
     for row in rows:
         if str(row.get("Electronic/ Marshalling Cabinet")) == cabinet:
@@ -217,6 +221,12 @@ def cabinet_grid_html(rows: list[dict[str, Any]], cabinet: str) -> str:
                                   f"CIOC {cioc} \u00b7 BP {bp} \u00b7 CH {ch} \u00b7 CHARM {row.get('CHARM_No') or '-'}",
                                   "Click to check its rules"])
                 inner = f'<b class="cue">{escape(cue)}</b>' if css.startswith("s-wired") else escape(cue)
+                if marks is not None:
+                    mark = marks.get(sid)
+                    css += f" mk-{mark}" if mark else " mk-off"
+                    if mark:
+                        label += f" (rule {MARK_WORDS.get(mark, mark)} here)"
+                        tip = tip.replace("Click to check its rules", f"This rule: {MARK_WORDS.get(mark, mark)}\nClick to check its rules")
                 out.append(f'<a class="iosg-cell-link" href="#cell-{quote(sid, safe="")}" aria-label="{escape(label, quote=True)}">'
                            f'<i class="iosg-slot {css}" role="img" data-tip="{escape(tip, quote=True)}">{inner}</i></a>')
             out.append("</div>")
