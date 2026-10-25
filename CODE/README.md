@@ -63,7 +63,13 @@ Moving around and fixing things:
   (the question and its fix, the signal's row and position, the rules on it, its other questions; see
   `io_sudoku/core/helpcontext.py`), shown highlighted at the top of the chat, so you can ask straight away. Every topic
   is its own conversation: another question starts a fresh chat, and the **Conversation** list takes you back to an
-  earlier one with only its own messages. To switch it on, add the secret `GEMINI_API_KEY` (locally in `.streamlit/secrets.toml`,
+  earlier one with only its own messages, shown as **questions and answers**: tap a question and its answer springs
+  open (all in the browser, no reload; **Show As Chat** continues it). While an answer is worked out, a **live status**
+  shows the step the model is really on (its own thought summaries, for example *Analyzing Spare Requirements*), a
+  ticking timer, and the answer as it is written; afterwards *Worked for 5s* above the answer opens to those steps.
+  It answers from the real numbers of your project (each cabinet's counts, the wired spares per controller, the open
+  questions). Its scope is strict: a request that is plainly about something else is declined at once without asking
+  the model, and the model declines anything else outside the project in the same words. To switch it on, add the secret `GEMINI_API_KEY` (locally in `.streamlit/secrets.toml`,
   which git ignores; on Streamlit Cloud under **Settings → Secrets**).
 - **Audit** (it used to be called Rule Radar; old links still work) has two tabs, **Rule Check** and **Rule Impact**.
 - **Rule Check**: pick any cells (or click a slot or drawing cell on Cabinet Layout) and see a live log of every rule

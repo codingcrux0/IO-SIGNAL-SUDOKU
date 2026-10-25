@@ -8,6 +8,11 @@
     nothing of the others, and going back to the first one brings back only its own messages.
   * The answers come from core.helpdesk (Google Gemini, advice in words only - no tools, no edits, no files).
     The chat itself runs as a fragment, so typing and waiting for an answer never re-runs the page behind it.
+  * While an answer is worked out, a live status (ui.aistatus) shows the step the model is really on - its own
+    thought summaries - with a ticking timer, and the answer streams in as it is written.  Afterwards a quiet
+    'Worked for 4s' line above it opens to those steps.
+  * Going back to an EARLIER conversation shows it as questions and answers (ui.faqview): tap a question and its
+    answer springs open.  Show As Chat (or asking something new) continues it as a chat.
   * About a TQ, the panel also keeps the Final Wording of your suggestion and sends it for verification.  On any
     page it can turn your request into a rule PROPOSAL (checked by the same form rules, verified on the Rules page).
 Nothing in here changes the allocation, the file or the rules by itself.
@@ -21,7 +26,7 @@ import streamlit as st
 
 from io_sudoku.core import helpdesk
 from io_sudoku.core.suggestion import make_suggestion
-from io_sudoku.ui import state, ui_logic
+from io_sudoku.ui import aistatus, faqview, state, ui_logic
 from io_sudoku.ui.views._common import md_escape
 
 WIDTH = 420                 # px, the panel on a wide screen (it covers the whole width on a phone)
@@ -80,6 +85,7 @@ def open_chat(topic: dict | None = None) -> None:
             "open": True, "used": time.monotonic()}
     if not current or current.get("key") != chat["key"]:
         s["help_pending"] = None                 # an answer still waiting belongs to the other conversation
+        chat["view"] = "faq" if chat["messages"] else "chat"     # an earlier conversation opens as questions & answers
     _save(chat)
 
 
@@ -102,6 +108,18 @@ def _close() -> None:
     s = st.session_state
     if s.get("chat"):
         _save({**s["chat"], "open": False})
+
+
+def _show_chat() -> None:
+    s = st.session_state
+    if s.get("chat"):
+        _save({**s["chat"], "view": "chat"})
+
+
+def _show_faq() -> None:
+    s = st.session_state
+    if s.get("chat"):
+        _save({**s["chat"], "view": "faq"})
 
 
 def _new_chat() -> None:
@@ -169,6 +187,11 @@ def page_summary() -> str:
         lines.append(f"Field signals {k.get('field', 0)}, wired spares {k.get('wired_spare', 0)}, cabinets "
                      f"{k.get('cabinets_used', 0)}, set aside {k.get('quarantined', 0)}; questions: {k.get('tq_error', 0)} "
                      f"errors, {k.get('tq_warning', 0)} warnings, {k.get('tq_info', 0)} info.")
+        lines += _cabinet_lines(result.rows)
+        spares = [f"{x.controller} {x.io_type}: {x.field} field, {x.quota} needed, {x.wired} wired"
+                  + (f", {x.shortfall} short" if x.shortfall else "") for x in (result.spare_lines or [])][:40]
+        if spares:
+            lines.append("Wired spares per controller and IO type (quota rounded up): " + "; ".join(spares) + ".")
         shown = [t for t in result.tqs if t.severity in ("error", "warning")][:25]
         if shown:
             lines.append("Open errors and warnings (first 25):")
@@ -186,6 +209,29 @@ def page_summary() -> str:
     return "\n".join(lines)
 
 
+def _cabinet_lines(rows: list[dict[str, Any]], limit: int = 20) -> list[str]:
+    """One line per marshalling cabinet of the allocation: its controller, system cabinet and how its 384 slots are
+    used (so a question about the cabinets is answered from the real numbers, never guessed)."""
+    from collections import Counter, defaultdict
+    by_cab: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for r in rows or []:
+        by_cab[str(r.get("Electronic/ Marshalling Cabinet") or "-")].append(r)
+    names = [c for c in sorted(by_cab) if c != "-"]
+    if not names:
+        return []
+    out = [f"Marshalling cabinets in the allocation ({len(names)}), each with 384 slots:"]
+    for cab in names[:limit]:
+        rs = by_cab[cab]
+        n = Counter(str(r.get("Tag Status") or "-") for r in rs)
+        out.append(f"- {cab}: controller {rs[0].get('Controller') or '-'}, system cabinet {rs[0].get('System Cabinet') or '-'}; "
+                   f"{n.get('Field', 0)} field signals, {n.get('Wired Spare', 0)} wired spares, "
+                   f"{n.get('Cabinet Alarm', 0)} cabinet alarms, {n.get('Spare Slot', 0)} spare slots "
+                   f"({round(100 * (len(rs) - n.get('Spare Slot', 0)) / max(len(rs), 1))}% used).")
+    if len(names) > limit:
+        out.append(f"- and {len(names) - limit} more (see Cabinet Layout).")
+    return out
+
+
 # ------------------------------------------------------------------ chat actions (inside the fragment)
 def _queue(text: str) -> None:
     """Add the user's message and mark an answer as wanted (it is fetched on the next fragment run)."""
@@ -201,7 +247,8 @@ def _queue(text: str) -> None:
     if time.monotonic() - last < helpdesk.MIN_SECONDS_BETWEEN:
         return
     s["help_count"], s["help_last"] = count + 1, time.monotonic()
-    _save({**chat, "messages": list(chat["messages"]) + [{"role": "user", "text": text[:helpdesk.MAX_MESSAGE_CHARS]}]})
+    _save({**chat, "view": "chat",
+           "messages": list(chat["messages"]) + [{"role": "user", "text": text[:helpdesk.MAX_MESSAGE_CHARS]}]})
     s["help_pending"] = (chat["key"], text[:helpdesk.MAX_MESSAGE_CHARS])
 
 
@@ -276,7 +323,7 @@ def render() -> None:
     if not chat.get("key"):                      # a conversation from before conversations were kept apart
         open_chat(None if chat.get("kind") == GENERAL else {**chat})
         chat = s["chat"]
-    st.markdown(f"<style>{OPEN_CSS}</style>", unsafe_allow_html=True)
+    st.markdown(f"<style>{OPEN_CSS}{aistatus.CSS}</style>", unsafe_allow_html=True)
     with st.container(key="helpdesk_drawer"):
         with st.container(horizontal=True, vertical_alignment="center", gap="small", key="helpdesk_head"):
             online = bool(_key())
@@ -331,23 +378,12 @@ def _body() -> None:
     chat = s.get("chat") or {}
     kind = chat.get("kind", GENERAL)
     state.show_flash("helpdesk")
-    with st.container(key="helpdesk_log", height=420):
-        with st.chat_message("assistant", avatar="\U0001F4AC"):
-            st.markdown(GREETING if kind == GENERAL or not chat.get("title") else
-                        f"Hello, I am the IO Sudoku Helpdesk. I already have the details of **{md_escape(chat['title'])}**, "
-                        "so you can ask your question straight away. I give advice only: you make every change yourself.")
-        for m in chat.get("messages", []):
-            with st.chat_message("user" if m["role"] == "user" else "assistant",
-                                 avatar="\U0001F464" if m["role"] == "user" else "\U0001F4AC"):
-                st.markdown(m["text"] if m["role"] == "assistant" else md_escape(m["text"]))
-        pending = s.get("help_pending")
-        if pending and isinstance(pending, tuple) and pending[0] == chat.get("key"):
-            with st.chat_message("assistant", avatar="\U0001F4AC"), st.spinner("Thinking…"):
-                reply = helpdesk.ask(pending[1], chat.get("messages", [])[:-1], page_summary(), _key())
-            s["help_pending"] = None
-            chat = s.get("chat") or chat
-            _save({**chat, "messages": list(chat.get("messages", [])) + [{"role": "assistant", "text": reply.text}]})
-            _rerun_panel()
+    pending = s.get("help_pending")
+    waiting = bool(pending and isinstance(pending, tuple) and pending[0] == chat.get("key"))
+    if chat.get("view") == "faq" and chat.get("messages") and not waiting:
+        _earlier(chat)
+    else:
+        _log(chat, kind, pending if waiting else None)
     if not chat.get("messages"):
         with st.container(horizontal=True, gap="small", key="helpdesk_quick"):
             for i, text in enumerate(QUICK.get(kind, QUICK[GENERAL])):
@@ -371,6 +407,83 @@ def _body() -> None:
                "the rules or any code.")
 
 
+def _earlier(chat: dict) -> None:
+    """An earlier conversation as questions and answers (tap one to open its answer), read-only."""
+    asked = sum(1 for m in chat.get("messages", []) if m.get("role") == "user")
+    with st.container(horizontal=True, vertical_alignment="center", gap="small", key="helpdesk_faq_head"):
+        st.caption(f"Earlier conversation · {asked:,} question{'s' if asked != 1 else ''}. Tap a question to see its answer.")
+        st.button("Show As Chat", key="helpdesk_as_chat", icon=":material/chat:", on_click=_show_chat,
+                  help="Show every message as a chat. Asking something new also continues this conversation.")
+    with st.container(key="helpdesk_faq"):
+        st.iframe(faqview.faq_page(chat.get("messages", [])), height=faqview.HEIGHT)
+
+
+def _log(chat: dict, kind: str, pending: tuple | None) -> None:
+    """The conversation as a chat, and - when a question is waiting - its answer, streamed with a live status."""
+    s = st.session_state
+    with st.container(key="helpdesk_log", height=420):
+        with st.chat_message("assistant", avatar="\U0001F4AC"):
+            st.markdown(GREETING if kind == GENERAL or not chat.get("title") else
+                        f"Hello, I am the IO Sudoku Helpdesk. I already have the details of **{md_escape(chat['title'])}**, "
+                        "so you can ask your question straight away. I give advice only: you make every change yourself.")
+        for m in chat.get("messages", []):
+            mine = m["role"] == "user"
+            with st.chat_message("user" if mine else "assistant", avatar="\U0001F464" if mine else "\U0001F4AC"):
+                if not mine and m.get("secs") is not None:
+                    st.markdown(aistatus.history_html(m["secs"], m.get("steps"), m.get("ok", True)), unsafe_allow_html=True)
+                st.markdown(md_escape(m["text"]) if mine else m["text"])
+        if pending is not None:
+            with st.chat_message("assistant", avatar="\U0001F4AC"):
+                reply, secs = _stream_answer(pending[1], chat)
+            s["help_pending"] = None
+            chat = s.get("chat") or chat
+            message = {"role": "assistant", "text": reply.text}
+            if reply.model not in ("", "scope") or (not reply.ok and secs >= 1):     # the model really worked on it
+                message.update(secs=secs, steps=list(reply.steps), ok=reply.ok)
+            _save({**chat, "messages": list(chat.get("messages", [])) + [message]})
+            _rerun_panel()
+    if chat.get("messages") and pending is None:
+        st.button("Show As Questions And Answers", key="helpdesk_as_faq", icon=":material/forum:", on_click=_show_faq,
+                  type="tertiary", help="See this conversation as a list of questions; tap one to open its answer.")
+
+
+def _stream_answer(question: str, chat: dict) -> tuple[helpdesk.Reply, float]:
+    """Ask, showing live what the model is doing (its own thought summaries) and the answer as it is written."""
+    with st.container(horizontal=True, gap="small", vertical_alignment="center"):
+        status_slot, timer_slot = st.empty(), st.empty()
+    text_slot = st.empty()
+    started = time.monotonic()
+    live: dict[str, Any] = {"state": "thinking", "detail": "Reading your question", "shown": None, "drawn": 0.0}
+
+    def show_status() -> None:
+        if (live["state"], live["detail"]) != live["shown"]:            # only a real change is sent to the browser
+            live["shown"] = (live["state"], live["detail"])
+            status_slot.markdown(aistatus.status_html(live["state"], live["detail"]), unsafe_allow_html=True,
+                                 width="content")
+
+    def on_event(event: str, text: str) -> None:
+        if event == "thought":
+            live["state"], live["detail"] = aistatus.phase(text), text
+            show_status()
+        elif event == "text":
+            if live["state"] != "writing":
+                live["state"], live["detail"] = "writing", ""
+                show_status()
+            now = time.monotonic()
+            if now - live["drawn"] >= 0.06:                                # at most ~16 updates a second
+                live["drawn"] = now
+                text_slot.markdown(helpdesk.clean_reply(text))
+    show_status()
+    timer_slot.markdown(aistatus.timer_html(), unsafe_allow_html=True, width="content")
+    reply = helpdesk.ask_stream(question, chat.get("messages", [])[:-1], page_summary(), _key(), on_event)
+    secs = round(time.monotonic() - started, 1)
+    timer_slot.empty()
+    status_slot.markdown(aistatus.status_html("done" if reply.ok else "error", "", secs), unsafe_allow_html=True,
+                         width="content")
+    text_slot.markdown(reply.text)
+    return reply, secs
+
+
 # The open panel: fixed on the right, full height; the page (and its top bar) shrink by the same width.
 OPEN_CSS = f"""
 [data-testid=stMain]{{padding-right:{WIDTH}px}}
@@ -379,6 +492,8 @@ OPEN_CSS = f"""
 background:#0f141b;border-left:1px solid var(--line);box-shadow:-12px 0 32px rgba(0,0,0,.45);padding:14px 16px 64px;
 overflow-y:auto;overscroll-behavior:contain;animation:iosg-drawer-in .26s cubic-bezier(.2,.8,.2,1) both}}
 .st-key-helpdesk_log{{height:calc(100vh - 380px)!important;min-height:220px}}
+.st-key-helpdesk_faq iframe{{height:calc(100vh - 360px)!important;min-height:240px;border:0}}
+.st-key-helpdesk_faq_head p{{margin:0}}
 .st-key-helpdesk_focus{{border:1px solid rgba(57,135,229,.55);border-left:4px solid #3987e5;border-radius:10px;
 background:rgba(57,135,229,.10);padding:8px 12px 4px}}
 @media (max-width:900px){{[data-testid=stMain]{{padding-right:0}}[data-testid=stHeader]{{width:100%!important}}
