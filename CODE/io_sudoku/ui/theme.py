@@ -18,6 +18,11 @@ h1,h2,h3{text-wrap:balance;letter-spacing:-.01em}
 .stButton>button:hover,.stDownloadButton>button:hover{border-color:var(--accent);background-color:#1f2630}
 .stButton>button:active,.stDownloadButton>button:active{background-color:#262e3a}
 [data-testid="stMetricValue"],.iosg-kpi b,table,.stDataFrame{font-variant-numeric:tabular-nums}
+.stDataFrame .dvn-scroller{scrollbar-width:auto!important;scrollbar-color:auto!important}
+.stDataFrame .dvn-scroller::-webkit-scrollbar{width:10px;height:10px}
+.stDataFrame .dvn-scroller::-webkit-scrollbar-thumb{background:rgba(150,150,160,.55);border-radius:6px;border:2px solid transparent;background-clip:padding-box}
+.stDataFrame .dvn-scroller::-webkit-scrollbar-thumb:hover{background-color:rgba(185,185,195,.85)}
+.stDataFrame .dvn-scroller::-webkit-scrollbar-track,.stDataFrame .dvn-scroller::-webkit-scrollbar-corner{background:transparent}
 .iosg-hero{padding:1.2rem 1.4rem;border:1px solid var(--line);border-radius:12px;
 background:linear-gradient(135deg,#0f1b2d 0%,#161b22 55%,#101a14 100%);margin-bottom:1rem}
 .iosg-hero h1{margin:.1rem 0 .3rem}.iosg-hero p{color:var(--muted);margin:0;max-width:62ch}

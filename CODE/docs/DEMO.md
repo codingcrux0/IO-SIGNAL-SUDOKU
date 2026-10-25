@@ -19,6 +19,8 @@ Open the app (`streamlit run app.py`). Keep **Try With Sample Data** as the offl
    pop-up says better or worse and how many hours keeping positions saves; *Save This Revision*, open it again by name
    in the **Revision Library**, show the four tables and the redline download. On the TQ Board, **Reviewed Before**
    lists the signals you decided on earlier that have a problem again, with their whole history.
-8. **Governed rules and AI (35 s).** **Rules**: propose a rule, press **Verify** beside it in the Review Queue,
-   *Preview Impact*, *Activate*. The AI box drafts only a *pending* proposal. "AI never touches the allocation."
+8. **Governed rules and AI (35 s).** **Rules → Columns And Checks**: new column *Voltage*, Number, unit *V*; find
+   *AIR*, give the shown signals *24*; add the check *At most 12*, Error: the live count shows 75 signals break it.
+   *Propose This Column*, press **Verify** in the Review Queue, *Preview Impact* (readiness would become BLOCKED),
+   *Activate*. **Edit** reopens it in the form. The AI only fills the form. "AI never touches the allocation."
 9. **Trust (15 s).** **Files**: open the run manifest in the page; it carries the SHA-256 fingerprint; re-running gives the same hash. Parts list and headroom on **Parts**.

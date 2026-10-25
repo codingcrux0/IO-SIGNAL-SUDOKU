@@ -270,7 +270,7 @@ def where_to_fix(tq_id: str, ref: str, index: RowIndex, sheets: list[EditSheet],
     nothing: a question that is not about a cell of the file opens the cabinet or the page it is about."""
     why = f"{tq_id} · {ref or '(no tag)'}"
     key = match_key(ref) or ""
-    if tq_id == "PROJECT-RULE-BROKEN":
+    if tq_id in ("PROJECT-RULE-BROKEN", "PROJECT-CHECK-ERROR"):
         return Fix("place", place="Rules › Project Columns And Constraints",
                    why="This is about a project rule: see which signals break it on the Rules page.")
     if tq_id in CABLE_TQS and key in index.cables:

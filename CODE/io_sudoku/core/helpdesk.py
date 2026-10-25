@@ -98,7 +98,7 @@ GLOSSARY = """GLOSSARY
   warning = must be approved (signed off) on the TQ Board before the result can be ISSUE-READY; info = no action.
 - Readiness: ISSUE-READY (safe to issue), DRAFT (warnings waiting or inputs changed), BLOCKED (an error, a broken
   rule, a signal set aside, or nothing allocated).
-- Rule pack: the project's adjustable settings and project rules (new columns, constraints). Proposed on the Rules
+- Rule pack: the project's adjustable settings and project rules (project columns with their values and checks). Proposed on the Rules
   page, verified in the Review Queue with one Verify button (no passcode in this prototype), previewed, then
   activated. Suggested fixes for TQs are verified the same way.
 - Answer: a value given on the TQ Board for one field of one tag, without editing the file; verified by re-allocating.
@@ -113,7 +113,7 @@ GLOSSARY = """GLOSSARY
 PAGES = """PAGES OF THE APP (sidebar)
 Upload (file, sample data, template, workspace, column mapping) - Edit File (change cells; Undo Last Change; Delete All
 Changes) - Preflight (data quality before solving) - Solve (Run Allocation, readiness, summary boxes, Wired Spares Per
-Controller) - Cabinet Layout (Slot Map, Front & Rear Drawings, All Cabinet Drawings, Why Is It Here?; click a slot to
+Controller, Assumptions Used In This Run) - Cabinet Layout (Slot Map, Front & Rear Drawings, All Cabinet Drawings, Why Is It Here?; click a slot to
 check its rules) - Rule Radar (two tabs: Rule Check - pick cells, live log of every rule that applies, Signal Path;
 Rule Impact - pick one rule or constraint, see every cell, CHARM and signal it affects, met or broken, on a highlighted
 cabinet map) - TQ Board (two tabs: Questions And Sign-Off - Sign Off The Warnings with Edit buttons and the arrow for
@@ -126,7 +126,12 @@ to the current allocation, better or worse, the whole allocation, its questions 
 then Save This Revision or Discard - and Compare Revisions, View In Detail; Revision Library - every saved revision,
 opened by its name with all its data; Revision History with Undo Last Revision and Delete; Revision Simulator, which
 makes a pretend client revision and estimates the rework saved) - Rules (Locked
-Rules, Propose A Rule: Settings, New Columns, Constraints; Review Queue with Verify and Reject buttons; Suggested
+Rules, Propose A Rule: Settings, and Columns And Checks - one form for one column: a new project column (name, text or
+number, unit) or an allocation column, its values per signal (type them in a table, give all shown signals one value,
+paste or upload tags and values, or fill rules plus one value for every other signal), and its checks (at most, at
+least, between, not blank, equal, one of, no duplicates ...), each an error that blocks the result or a warning to
+sign off, each on every signal or only some, with a live count of the signals that break it; an optional AI fills the
+form from words or makes the purpose clearer; Review Queue (a scroll box) with Verify and Reject buttons; Suggested
 Fixes; Preview And Activate; Where It Applies) - Files (view and download every output). A search bar at the top jumps
 to any page or section. "Ask The Helpdesk" buttons next to a TQ, the answer box, a Rule Check cell, a Rule Impact rule,
 Why Is It Here?, a revision change, a Reviewed Before item and a revision preview open the Helpdesk about that thing;

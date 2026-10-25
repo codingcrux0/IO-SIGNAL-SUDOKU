@@ -153,13 +153,13 @@ def test_the_simulator_tab_estimates_hours_and_updates_them_live():
 
 
 # ------------------------------------------------------------------ removed boxes, all drawings
-def test_needs_a_human_and_assumptions_are_gone_but_stay_in_the_downloads():
+def test_needs_a_human_is_gone_and_assumptions_are_on_solve_and_in_the_downloads():
     at = _app("Preflight")
     assert "Needs A Human" not in _texts(at) and not at.exception
     at.session_state["view"] = "Solve"
     at.run()
-    assert not [e for e in at.expander if "Assumptions" in e.label] and not at.exception
-    assert load_sample_result().assumptions                                           # still in the TQ register file
+    assert [e for e in at.expander if "Assumptions" in e.label] and not at.exception   # back on Solve
+    assert load_sample_result().assumptions                                           # and in the TQ register file
 
 
 def test_why_is_it_here_also_shows_under_all_cabinet_drawings():

@@ -21,10 +21,10 @@ def propose(template, args, author="alice", now="2026-10-24T10:00:00", **kw):
 def test_the_fixed_list_of_templates():
     assert set(rc.TEMPLATES) == {"io_alias", "high_current_keyword", "instrument_profile", "segregation_family",
                                  "spare_pct", "future_pct", "end_reserve_bps", "add_cabinet",
-                                 "project_column", "expect_hardware", "require_filled"}
-    assert set(rc.PROJECT_TEMPLATES) == {"project_column", "expect_hardware", "require_filled"}
+                                 "project_column", "expect_hardware", "require_filled", "column_rule"}
+    assert set(rc.PROJECT_TEMPLATES) == {"project_column", "expect_hardware", "require_filled", "column_rule"}
     cat = rc.template_catalogue(ROOMS)
-    assert len(cat) == 11
+    assert len(cat) == 11 and "column_rule" not in {t["key"] for t in cat}       # built on its own form
     room = next(a for t in cat if t["key"] == "add_cabinet" for a in t["args"] if a["name"] == "room")
     assert room["choices"] == ROOMS
 

@@ -20,30 +20,30 @@ class Assumption:
 
 ASSUMPTIONS: tuple[Assumption, ...] = (
     Assumption("A01", "The Service Description of a field signal is taken from the MDB column 'Tag Service 1 and 2'.",
-               "Compared with the official sample: identical for every tag.", "Senior engineer"),
+               "Checked against the client's sample allocation: identical for every tag.", "Senior engineer"),
     Assumption("A02", "A second IO type on a row (for example DI + DO or AI + AO) is the other end of a third-party "
-               "interface; only the first type is allocated as a channel.", "Pattern in the sample MDB (HVAC interface rows).",
+               "interface; only the first type is allocated as a channel.", "Seen in the client's sample MDB (HVAC interface rows).",
                "Project lead"),
     Assumption("A03", "The 10% wired-spare quota is counted on Field signals only, per IO type, per controller.",
-               "CLAUDE_RULES 3D.3.", "Senior engineer"),
+               "Project allocation rules, section 3D.3 (wired spares).", "Senior engineer"),
     Assumption("A04", "Cabinet alarms are not counted as field signals for the spare quota and use only baseplate 1 of CIOC 1.",
-               "CLAUDE_RULES 3D.1 and the official sample.", "Senior engineer"),
+               "Project allocation rules, section 3D.1 (cabinet alarms), and the client's sample allocation.", "Senior engineer"),
     Assumption("A05", "Section / Sub Unit is worked out from the tag number by a simple rule table; it is informational only.",
-               "Pattern in the official sample (not a fixed formula).", "Senior engineer"),
+               "Seen in the client's sample allocation (not a fixed formula).", "Senior engineer"),
     Assumption("A06", "Revision No is '00' on a first run; later revisions stamp only the changed rows with the revision label.",
-               "Sample allocation convention.", "Project lead"),
+               "Convention of the client's sample allocation.", "Project lead"),
     Assumption("A07", "Cabinets that receive no signal and no alarm are not listed in the output.",
-               "Design decision.", "Project lead"),
+               "IO Sudoku design decision.", "Project lead"),
     Assumption("A08", "Cables of 6 pairs or fewer are half-baseplate aligned (channel 1 or 7), so two can share a baseplate.",
-               "Observed in the official sample.", "Senior engineer"),
+               "Seen in the client's sample allocation.", "Senior engineer"),
     Assumption("A09", "Cable sizes above 6 pairs are rounded up to a multiple of 12 channels (whole baseplates).",
-               "Design decision.", "Senior engineer"),
+               "IO Sudoku design decision.", "Senior engineer"),
     Assumption("A10", "Segregation A and A-CONTROL form one family and B and B-ALARM another; C, D and E are unrestricted. "
-               "The two families never share a CIOC.", "CLAUDE_RULES 3D.2 and the guideline document.", "Project lead"),
+               "The two families never share a CIOC.", "Project allocation rules, section 3D.2 (segregation), and the DeltaV allocation guideline.", "Project lead"),
     Assumption("A11", "Cabinet, system cabinet and controller names for some technical rooms were inferred from the MDB, "
-               "not read from the configured topology.", "Topology inference.", "Senior engineer"),
+               "not read from the configured topology.", "Worked out from the MDB because the configured topology had no entry.", "Senior engineer"),
     Assumption("A12", "Default project rules (pack VIT-2026): 10% wired spares, 10% future space, the last 4 baseplates of "
-               "CIOC 4 kept empty (at least 3 must be empty).", "CLAUDE_RULES 3D.3.", "Client"),
+               "CIOC 4 kept empty (at least 3 must be empty).", "Project allocation rules, section 3D.3, and the default rule pack VIT-2026.", "Client"),
 )
 
 

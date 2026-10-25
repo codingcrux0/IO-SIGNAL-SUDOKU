@@ -84,7 +84,8 @@ Moving around and fixing things:
   update as you change the minutes per change), a chart of where the hours go, the moved tags, and **Run For Every
   Size** (1-20%). Download the results or the pretend revision itself to try on Compare With A New MDB.
 - Problems in the file are the questions on the **TQ Board** (Preflight shows the data quality score only). The
-  assumptions the tool made are listed in the downloaded TQ register and summary, not on screen.
+  assumptions the tool made are on **Solve → Assumptions Used In This Run** (with where each one comes from and who
+  should confirm it) and in the downloaded TQ register and summary.
 - **Revision → Compare With A New MDB**: each count has **View In Detail**; pick a signal to see every column that
   changed, the rules and decisions behind its new place, and open it on Rule Check. The impact report also opens as a
   web page in the browser (**View In The Browser**, or download the `.html`).
@@ -94,12 +95,23 @@ Moving around and fixing things:
   items you reviewed before) and its changes. **Save This Revision** (with a name) or **Discard**.
 - **Revision → Revision Library**: every saved revision by name; click a name to see all its data again, download its
   allocation and impact report, rename or delete it.
-- **Rules**: propose **Settings**, **New Columns** (a project label on some CHARM signals, never written into the
-  locked 76-column allocation) or **Constraints** (checks every covered signal must pass; a broken one becomes a
-  `PROJECT-RULE-BROKEN` warning). Every rule has **👁 Where It Applies**, and Preview lists every cell a new pack
-  would change, signal by signal. None of them can move a signal, and the locked rules cannot be proposed at all.
-  Each proposal waits in the **Review Queue** with a **Verify** button beside it (and **Reject**, with an optional
-  reason). This prototype needs no passcode; a verified rule is used only after **Preview And Activate**.
+- **Rules**: propose **Settings** (their text fields list the values really in the allocation, with how many signals
+  have each, and say how many signals the rule would cover) or **Columns And Checks**, one form for one column:
+  1. **Which column**: a new project column (name, text or number, unit such as V), an active project column to
+     change, or a column of the allocation itself (checks only).
+  2. **Values**: type a value per signal in the table (find signals, then give all the shown ones one value at
+     once), paste or upload tags and values, or, second, fill rules ("signals whose IO Type contains AI get 24") and
+     one value for every other signal (or blank). A typed value wins, then the last fill rule, then that value.
+  3. **Checks**: at most, at least, between, not blank, equal, one of, no duplicates ..., each on every signal or
+     only some, each an **Error** (`PROJECT-CHECK-ERROR`, blocks the result) or a **Warning** (`PROJECT-RULE-BROKEN`,
+     sign off). Each check shows live how many signals of the current allocation break it.
+  The wording is written by code. The optional AI fills the form from a sentence or makes the purpose clearer; it
+  never sees your data and never proposes anything. Active columns have **Edit** (opens them in the form) and
+  **Remove** (a removal proposal). Project columns are never written into the locked 76-column allocation, and
+  none of this can move a signal; the locked rules cannot be proposed at all. Every rule has **👁 Where It
+  Applies**, and Preview lists every cell a new pack would change. Each proposal waits in the **Review Queue** (a
+  scroll box, newest first) with **Verify** and **Reject**; a verified rule is used only after **Preview And
+  Activate**.
 
 To see how the tool handles bad input, upload a file from `test_cases/`. The 21 files there are copies of the sample
 MDB with problems planted on purpose: messy formatting, tag, IO type, cable, pair, segregation and alarm errors, an

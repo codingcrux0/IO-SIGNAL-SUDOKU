@@ -24,7 +24,7 @@ from typing import Any
 
 from io_sudoku.core.config import Config, load_config
 from io_sudoku.core.constants import IO_TYPES, PROFILES
-from io_sudoku.core.projectrules import CHECK_COLUMNS, MATCH_COLUMNS, charm_types
+from io_sudoku.core.projectrules import CHECK_COLUMNS, MATCH_COLUMNS, charm_types, column_statement, normalize_column_rule
 from io_sudoku.core.rulepack import RulePack, apply_pack, derive, validate_pack
 from io_sudoku.core.textnorm import clean, match_key
 
@@ -78,8 +78,12 @@ TEMPLATES: dict[str, RuleTemplate] = {t.key: t for t in (
                  (ArgSpec("match_column", "choice", MATCH_COLUMNS), ArgSpec("match_text", "text", max_len=40),
                   ArgSpec("check_column", "choice", CHECK_COLUMNS)),
                  "Every signal whose {match_column} contains '{match_text}' must have {check_column} filled in."),
+    # ONE column with its values and checks (projectrules.column_rule).  Its fields are not simple dropdowns, so
+    # it is checked by projectrules.normalize_column_rule and worded by projectrules.column_statement.
+    RuleTemplate("column_rule", "Project column and its checks", (), ""),
 )}
-PROJECT_TEMPLATES = ("project_column", "expect_hardware", "require_filled")
+PROJECT_TEMPLATES = ("project_column", "expect_hardware", "require_filled", "column_rule")
+FORM_ONLY = ("column_rule",)        # built on the Columns And Checks form, not from the simple template list
 
 
 @dataclass
@@ -102,6 +106,8 @@ def template_catalogue(known_rooms: list[str]) -> list[dict[str, Any]]:
     """What the dropdown form needs: every template with its fields and allowed values."""
     out = []
     for t in TEMPLATES.values():
+        if t.key in FORM_ONLY:
+            continue
         args = [{"name": a.name, "kind": a.kind, "choices": list(known_rooms if (t.key == "add_cabinet" and a.name == "room") else a.choices),
                  "lo": a.lo, "hi": a.hi, "max_len": a.max_len} for a in t.args]
         out.append({"key": t.key, "label": t.label, "statement": t.statement, "args": args})
@@ -150,11 +156,17 @@ def build_proposal(template: str, args: dict[str, Any], author: str, source: str
         return None, [f"'{template}' is not a supported kind of rule."]
     if not clean(author):
         return None, ["Please enter your name as the author."]
-    rooms = known_rooms if known_rooms is not None else load_config().known_rooms()
-    clean_args, errors = _validate_args(spec, dict(args), rooms)
-    if errors:
-        return None, errors
-    statement = spec.statement.format(**clean_args)
+    if template == "column_rule":
+        clean_args, errors = normalize_column_rule(args)
+        if errors:
+            return None, errors
+        statement = column_statement(clean_args)
+    else:
+        rooms = known_rooms if known_rooms is not None else load_config().known_rooms()
+        clean_args, errors = _validate_args(spec, dict(args), rooms)
+        if errors:
+            return None, errors
+        statement = spec.statement.format(**clean_args)
     digest = hashlib.sha256((template + json.dumps(clean_args, sort_keys=True) + str(author) + now).encode("utf-8")).hexdigest()[:8]
     return RuleProposal(f"RC-{digest}", template, clean_args, statement, "ai" if source == "ai" else "form", "pending",
                         str(author).strip(), None, now, None, None, rationale), []
@@ -244,6 +256,11 @@ def apply_approved(pack: RulePack, proposals: list[RuleProposal], cfg: Config | 
             overrides.setdefault("segregation_families", {})[str(a["code"]).upper()] = a["family"]
         elif p.template in ("spare_pct", "future_pct", "end_reserve_bps"):
             params[p.template] = int(a["value"])
+        elif p.template == "column_rule":
+            rules = overrides.setdefault("project_rules", [])
+            rules[:] = [r for r in rules if not _same_column(r, a)]          # a column has one rule: the newest
+            if not a.get("remove"):
+                rules.append({"id": p.id, "kind": "column_rule", "args": dict(a), "statement": p.statement})
         elif p.template in PROJECT_TEMPLATES:
             overrides.setdefault("project_rules", []).append(
                 {"id": p.id, "kind": p.template, "args": dict(a), "statement": p.statement})
@@ -255,6 +272,16 @@ def apply_approved(pack: RulePack, proposals: list[RuleProposal], cfg: Config | 
                     "marshalling", "system", "controller", "tech_room", "loc", "area5", "unit", "cabinet_seq", "ctrl_seq")})
     result = RulePack(new.name, new.version, new.parent, params, overrides, False)
     return pack if validate_pack(result) else result
+
+
+def _same_column(rule: dict[str, Any], args: dict[str, Any]) -> bool:
+    """True if a stored project rule is the rule of this column (an older version of it, or the old one-value
+    project column of the same name), so the new version replaces it."""
+    name = match_key(args.get("column"))
+    if rule.get("kind") == "column_rule":
+        old = rule.get("args") or {}
+        return match_key(old.get("column")) == name and bool(old.get("new")) == bool(args.get("new"))
+    return bool(args.get("new")) and rule.get("kind") == "project_column" and match_key((rule.get("args") or {}).get("column")) == name
 
 
 def row_diff_summary(rows_before: list[dict[str, Any]], rows_after: list[dict[str, Any]]) -> dict[str, int]:

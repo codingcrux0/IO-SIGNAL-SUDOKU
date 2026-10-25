@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from io_sudoku.core.cellcheck import FAIL, INFO, PASS, WARN, check_cell, context, position, slot_id
+from io_sudoku.core.projectrules import titles
 
 LOCKED, SETTINGS, PROJECT, PEOPLE, QUESTIONS = ("Locked Rules", "Pack Settings", "Project Rules", "Answers And Pins",
                                                 "Questions And Findings")
@@ -125,8 +126,8 @@ def rule_impact(result: Any, overrides: list[Any] | None = None,
                                        cab, cioc, bp, ch))
         cfg = getattr(result, "cfg_used", None)
         for rule in (cfg.rules.project_rules if cfg is not None else []):     # a constraint that covers no cell yet
-            title = str(rule.get("statement") or rule.get("kind"))
-            found.setdefault(f"Project rule|{title}", Impact(f"Project rule|{title}", PROJECT, "Project rule", title))
+            for title in titles(rule):
+                found.setdefault(f"Project rule|{title}", Impact(f"Project rule|{title}", PROJECT, "Project rule", title))
     except Exception:  # noqa: BLE001 - a broken row must never break the page; what was found so far is shown
         pass
     order = {g: i for i, g in enumerate(GROUPS)}

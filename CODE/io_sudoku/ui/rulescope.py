@@ -10,7 +10,7 @@ from typing import Any
 
 from io_sudoku.core import cellcheck
 from io_sudoku.core.constants import BPS_PER_CIOC, CIOCS_PER_CAB, STATUS_ALARM, STATUS_FIELD, STATUS_SLOT, STATUS_WIRED
-from io_sudoku.core.projectrules import judge, matches
+from io_sudoku.core.projectrules import all_dupes, covers, judge, rule_outcomes
 from io_sudoku.core.revision import location
 from io_sudoku.core.textnorm import match_key
 
@@ -35,7 +35,8 @@ def scope_text(template: str, args: dict[str, Any]) -> str:
         "future_pct": "every Spare Slot kept free for the future",
         "end_reserve_bps": f"the last {a.get('value')} baseplates of CIOC 4",
         "add_cabinet": f"the signals of technical room {a.get('room')}",
-    }.get(template, f"signals whose {a.get('match_column')} contains '{a.get('match_text')}'")
+    }.get(template) or (f"signals with a value in {a.get('column')}, or covered by one of its checks" if template == "column_rule"
+                        else f"signals whose {a.get('match_column')} contains '{a.get('match_text')}'")
 
 
 def applies_to(template: str, args: dict[str, Any], rows: list[dict[str, Any]],
@@ -64,7 +65,7 @@ def applies_to(template: str, args: dict[str, Any], rows: list[dict[str, Any]],
         elif template == "add_cabinet":
             hit = status in SIGNALS and _s(r, "Technical Room").casefold() == str(a.get("room", "")).casefold()
         else:
-            hit = matches({"kind": template, "args": a}, r)
+            hit = covers({"kind": template, "args": a}, r)
         if hit:
             out.append(r)
             if len(out) >= MAX_ROWS:
@@ -72,16 +73,23 @@ def applies_to(template: str, args: dict[str, Any], rows: list[dict[str, Any]],
     return out
 
 
-def table(template: str, args: dict[str, Any], rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """One line per covered signal: where it is, its CHARM, and (for a project rule) its result."""
+def table(template: str, args: dict[str, Any], rows: list[dict[str, Any]],
+          all_rows: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+    """One line per covered signal: where it is, its CHARM, and (for a project rule) its result.  `all_rows` = the
+    whole allocation, for a 'no two signals the same' check."""
     out = []
+    rule = {"kind": template, "args": args}
+    dupes = all_dupes(rule, all_rows or rows) if template == "column_rule" else {}
     for r in rows:
         pos = cellcheck.position(r)
         line = {"Tag": _s(r, "Tag Name") or "-", "Status": _s(r, "Tag Status"), "Cabinet": pos[0] if pos else "-",
                 "CIOC": pos[1] if pos else None, "BP": pos[2] if pos else None, "CH": pos[3] if pos else None,
                 "CHARM Type": _s(r, "CHARM Type"), "IO": _s(r, "IO Type")}
-        if template in ("project_column", "expect_hardware", "require_filled"):
-            o = judge({"kind": template, "args": args}, r)
+        if template == "column_rule":
+            line["Result"] = " · ".join(o.detail if o.ok is None else (("✓ " if o.ok else "✗ ") + o.detail)
+                                        for _, o, _ in rule_outcomes(rule, r, dupes))
+        elif template in ("project_column", "expect_hardware", "require_filled"):
+            o = judge(rule, r)
             line["Result"] = o.detail if o.ok is None else (("✓ " if o.ok else "✗ ") + o.detail)
         out.append(line)
     return out

@@ -1,7 +1,7 @@
 """Rules: governed rule changes.  Engineers propose, someone verifies (one button), the audit log records it all.
 
-Three kinds of rule can be proposed: Settings (the tunable project values), New Columns (a project label on
-some CHARM signals) and Constraints (a check every covered signal must pass).  Every rule shows which CHARM
+Two kinds of rule can be proposed: Settings (the tunable project values) and Columns And Checks (one column
+with a value for each signal and the checks those values must pass; see columns.py).  Every rule shows which CHARM
 signals it applies to, and Preview shows what a new pack would change in each signal before it is activated.
 The locked rules cannot be changed here at all.  The AI box only drafts a proposal for the same form; it
 never touches allocation and never sees your MDB data.  Long explanations sit behind the (i) icons."""
@@ -18,14 +18,18 @@ from io_sudoku.core.pipeline import solve
 from io_sudoku.core.projectrules import project_columns
 from io_sudoku.core.rulepack import LOCKED_RULES, pack_from_dict, pack_hash, pack_to_dict, validate_pack
 from io_sudoku.ui import rulescope, state, ui_logic
+from io_sudoku.ui.views import columns
 from io_sudoku.ui.views._common import ask_first, heading, md_escape
 
-GROUPS = {"Settings": [k for k in rc.TEMPLATES if k not in rc.PROJECT_TEMPLATES],
-          "New Columns": ["project_column"], "Constraints": ["expect_hardware", "require_filled"]}
-GROUP_HELP = ("Settings change a project value (spare %, an IO-type alias, a cabinet ...). New Columns put a "
-              "project label on some CHARM signals; they are shown in the app and never written into the locked "
-              "76-column allocation. Constraints are checks: every signal they cover is checked after each "
-              "allocation, and a broken one becomes a warning to sign off. None of them can move a signal.")
+GROUPS = {"Settings": [k for k in rc.TEMPLATES if k not in rc.PROJECT_TEMPLATES], columns.GROUP: []}
+GROUP_HELP = ("Settings change a project value (spare %, an IO-type alias, a cabinet ...). Columns And Checks is "
+              "one form for one column: make a new project column (for example Voltage), give each signal its value "
+              "(type them per signal, paste them, or fill many at once), and add the checks the values must pass "
+              "(for example at most 24 V), each an error or a warning. Checks can also be put on a column of the "
+              "allocation itself. Project columns are shown in the app and never written into the locked 76-column "
+              "allocation. None of them can move a signal.")
+# the text fields of a Settings rule that are about values in the allocation get a dropdown of those values
+PICK_FROM = {("instrument_profile", "instrument"): "Instrument type", ("segregation_family", "code"): "Segregation"}
 ARG_LABELS = {"io": "IO Type", "match_column": "Look At Column", "match_text": "That Contains", "charm_type": "Must Use CHARM",
               "check_column": "Must Have Filled In", "column": "New Column Name", "value": "Value", "pct": "Percent"}
 QUEUE, SUGGESTIONS, PREVIEW, ACTIVE = "Review Queue", "Suggested Fixes Waiting For Verification", "Preview And Activate", \
@@ -79,8 +83,8 @@ def _where_it_applies(template: str, args: dict, key: str) -> None:
         st.caption("Run an allocation first to see which signals this rule covers.")
         return
     rows = _covered(template, args)
-    lines = rulescope.table(template, args, rows)
-    broken = sum(1 for x in lines if str(x.get("Result", "")).startswith("✗"))
+    lines = rulescope.table(template, args, rows, st.session_state["result"].rows)
+    broken = sum(1 for x in lines if "✗" in str(x.get("Result", "")))
     st.caption(f"{len(lines):,} signals · {rulescope.scope_text(template, args)}"
                + (f" · {broken:,} break it" if broken else "") + (" · the first 500 are listed" if len(lines) >= rulescope.MAX_ROWS else ""))
     if lines:
@@ -185,7 +189,8 @@ def _preview() -> None:
     s["rule_preview"] = {"pack": new_pack, "diff": rc.row_diff_summary(before.rows, after.rows),
                          "before": before.readiness.status, "after": after.readiness.status,
                          "changes": rulescope.signal_changes(before.rows, after.rows),
-                         "new_tqs": [(t.tq_id, t.ref, t.message) for t in after.tqs if t.tq_id == "PROJECT-RULE-BROKEN"]}
+                         "new_tqs": [(t.tq_id, t.ref, t.message) for t in after.tqs
+                                     if t.tq_id in ("PROJECT-RULE-BROKEN", "PROJECT-CHECK-ERROR")]}
 
 
 def _activate() -> None:
@@ -266,17 +271,23 @@ def _propose_form() -> None:
     heading("Propose A Rule", GROUP_HELP)
     if s.get("rule_group") not in GROUPS:
         s["rule_group"] = "Settings"
-    st.segmented_control("Kind Of Rule", list(GROUPS), key="rule_group", label_visibility="collapsed")
+    a, b = st.columns([1, 1.4], vertical_alignment="bottom")
+    a.text_input("Your Name", key="rule_author", autocomplete="off", placeholder="Who is proposing this?…")
+    with b:
+        st.segmented_control("Kind Of Rule", list(GROUPS), key="rule_group", label_visibility="collapsed")
     group = s.get("rule_group") or "Settings"
+    if group == columns.GROUP:
+        with st.container(border=True, key="column_form_box"):
+            columns.render()
+        return
     catalogue = {t["key"]: t for t in rc.template_catalogue(_rooms())}
-    keys = [k for k in GROUPS[group] if k in catalogue]
+    keys = [k for k in GROUPS["Settings"] if k in catalogue]
     if s.get("rule_tpl") not in keys:
         s["rule_tpl"] = keys[0]
     with st.container(border=True, key="rule_form_box"):
-        a, b = st.columns(2)
-        a.text_input("Your Name", key="rule_author", autocomplete="off", placeholder="Who is proposing this?…")
-        template = b.selectbox("Rule Type", keys, format_func=lambda k: catalogue[k]["label"], key="rule_tpl")
+        template = st.selectbox("Rule Type", keys, format_func=lambda k: catalogue[k]["label"], key="rule_tpl")
         spec = catalogue[template]
+        signals = [r for r in (getattr(s["result"], "rows", None) or []) if r.get("Tag Status") in ("Field", "Cabinet Alarm")]
         cols = st.columns(min(len(spec["args"]), 4) or 1)
         for i, arg in enumerate(spec["args"]):
             key, label = f"rf_{template}_{arg['name']}", ARG_LABELS.get(arg["name"], arg["name"].replace("_", " ").title())
@@ -285,11 +296,19 @@ def _propose_form() -> None:
                     st.selectbox(label, arg["choices"], key=key)
                 elif arg["kind"] == "int":
                     st.number_input(label, min_value=arg["lo"], max_value=arg["hi"], value=arg["lo"], step=1, key=key)
+                elif (template, arg["name"]) in PICK_FROM and signals:
+                    columns._picker(label, key, columns._counts(PICK_FROM[(template, arg["name"])], signals),
+                                    help="The values really in the allocation, with how many signals have each. "
+                                         "You can also type a new one.")
                 else:
-                    st.text_input(label, key=key, max_chars=arg["max_len"], autocomplete="off",
-                                  help="Use * as the match text to cover every signal." if arg["name"] == "match_text" else None)
+                    st.text_input(label, key=key, max_chars=arg["max_len"], autocomplete="off")
         st.markdown(f"\U0001F4DD **Wording:** {md_escape(_wording(template, spec))}",
                     help="The rule's wording is written by the tool from the form, never typed free-hand.")
+        if s["result"] is not None:
+            args = {a["name"]: s.get(f"rf_{template}_{a['name']}") for a in spec["args"]}
+            if all(v not in (None, "") for v in args.values()):
+                st.caption(f"Right now this rule would cover {len(_covered(template, args)):,} signals "
+                           f"({rulescope.scope_text(template, args)}).")
         st.button("Propose Rule", key="rule_propose", type="primary", on_click=_propose, args=(template,))
 
 
@@ -306,19 +325,31 @@ def _queue() -> None:
     if not s["proposals"]:
         st.caption("No rules have been proposed yet.")
         return
-    for p in s["proposals"]:
-        with st.container(border=True, key=f"proposal_{p.id}"):
-            box, buttons = st.columns([4, 1.6], vertical_alignment="center")
-            box.markdown(f"**{md_escape(p.statement)}**  \n<small>{'AI draft' if p.source == 'ai' else 'Form'} · "
-                         f"{md_escape(rc.TEMPLATES[p.template].label)} · proposed by {md_escape(p.author)} · "
-                         f"{_status(p.status)}" + (f" · by {md_escape(p.reviewer)}" if p.reviewer else "") + "</small>",
-                         unsafe_allow_html=True,
-                         help=("Assistant's reasoning (information only): " + p.rationale) if p.rationale else None)
-            if p.status == "pending":
-                with buttons:
-                    _decision_buttons(p.id, "", _decide, "rule")
-            elif p.status == "rejected" and p.reason:
-                buttons.caption(f"Reason: {md_escape(p.reason)}")
+    waiting = sum(1 for p in s["proposals"] if p.status == "pending")
+    st.caption(f"{len(s['proposals']):,} proposed · {waiting:,} waiting for verification · newest first"
+               + (" · scroll inside the box to see them all" if len(s["proposals"]) > 3 else ""))
+    box = st.container(height=560, key="review_queue_box") if len(s["proposals"]) > 3 else st.container()
+    with box:
+        for p in reversed(s["proposals"]):
+            _proposal_card(p)
+
+
+def _proposal_card(p) -> None:
+    with st.container(border=True, key=f"proposal_{p.id}"):
+        box, buttons = st.columns([4, 1.6], vertical_alignment="center")
+        box.markdown(f"**{md_escape(p.statement)}**  \n<small>{'AI draft' if p.source == 'ai' else 'Form'} · "
+                     f"{md_escape(rc.TEMPLATES[p.template].label)} · proposed by {md_escape(p.author)} · "
+                     f"{_status(p.status)}" + (f" · by {md_escape(p.reviewer)}" if p.reviewer else "") + "</small>",
+                     unsafe_allow_html=True,
+                     help=("Assistant's reasoning (information only): " + p.rationale) if p.rationale else None)
+        if p.template == "column_rule" and (p.args or {}).get("note"):
+            box.caption(f"Purpose: {p.args['note']}")
+        if p.status == "pending":
+            with buttons:
+                _decision_buttons(p.id, "", _decide, "rule")
+        elif p.status == "rejected" and p.reason:
+            buttons.caption(f"Reason: {md_escape(p.reason)}")
+        if not (p.template == "column_rule" and (p.args or {}).get("remove")):
             _where_it_applies(p.template, p.args, p.id)
 
 
@@ -366,23 +397,34 @@ def _impact() -> None:
 def _active_rules() -> None:
     s = st.session_state
     rules = list((s["pack"].overrides or {}).get("project_rules", []))
-    heading(ACTIVE, "The new columns and constraints of the ACTIVE pack. Open \U0001F441 Where It Applies to see the "
-                    "CHARM signals each one covers, with the result for each signal. Project columns can be "
-                    "downloaded as a CSV; they are never written into the locked allocation.")
+    heading(ACTIVE, "The project columns and checks of the ACTIVE pack. Open \U0001F441 Where It Applies to see the "
+                    "CHARM signals each one covers, with each signal's value and the result of each check. Edit opens "
+                    "a column in the form above; Remove proposes taking it away. Project columns can be downloaded "
+                    "as a CSV; they are never written into the locked allocation.")
     if not rules:
-        st.caption("The active pack has no project columns or constraints yet. Propose one above (New Columns or Constraints).")
+        st.caption(f"The active pack has no project columns or checks yet. Propose one above ({columns.GROUP}).")
         return
     for i, rule in enumerate(rules):
         with st.container(border=True, key=f"active_rule_{i}"):
-            st.markdown(f"**{md_escape(rule.get('statement') or rule.get('kind'))}**  \n<small>{md_escape(rc.TEMPLATES[rule['kind']].label)}"
-                        f" · {md_escape(rule.get('id', ''))}</small>", unsafe_allow_html=True)
+            text, buttons = st.columns([4, 1.6], vertical_alignment="center")
+            note = (rule.get("args") or {}).get("note") if rule.get("kind") == "column_rule" else ""
+            text.markdown(f"**{md_escape(rule.get('statement') or rule.get('kind'))}**  \n<small>{md_escape(rc.TEMPLATES[rule['kind']].label)}"
+                          f" · {md_escape(rule.get('id', ''))}</small>", unsafe_allow_html=True,
+                          help=f"Purpose: {note}" if note else None)
+            if rule.get("kind") in ("column_rule", "project_column"):
+                with buttons, st.container(horizontal=True, horizontal_alignment="right", gap="small"):
+                    st.button("Edit", key=f"active_edit_{i}", icon=":material/edit:", on_click=columns.edit_rule, args=(rule,),
+                              help="Open this column in the form above to change its values or checks.")
+                    ask_first(f"active_remove_{i}", "Remove", "Propose removing this column and its checks? It goes to "
+                              "the Review Queue like any other rule.", columns.remove_rule, (rule, ACTIVE), yes="Propose Removal")
             _where_it_applies(rule["kind"], rule["args"], f"active_{i}")
     result = s["result"]
-    columns = [r for r in rules if r.get("kind") == "project_column"]
-    if columns and result is not None:
+    with_values = [r for r in rules if r.get("kind") == "project_column" or
+                   (r.get("kind") == "column_rule" and (r.get("args") or {}).get("new"))]
+    if with_values and result is not None:
         lines = []
         for row in result.rows:
-            values = project_columns(columns, row)
+            values = project_columns(with_values, row)
             if values:
                 lines.append({"Tag Name": row.get("Tag Name"), **values})
         if lines:

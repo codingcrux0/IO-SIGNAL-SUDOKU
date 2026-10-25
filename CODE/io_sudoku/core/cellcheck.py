@@ -19,7 +19,7 @@ from io_sudoku.core.catalog import charm_matches_io, hardware
 from io_sudoku.core.constants import (BPS_PER_CIOC, CIOCS_PER_CAB, PROFILES, SLOTS_PER_BP, SLOTS_PER_CAB, STATUS_ALARM,
                                       STATUS_FIELD, STATUS_SLOT, STATUS_WIRED)
 from io_sudoku.core.naming import parse_bp
-from io_sudoku.core.projectrules import judge, matches
+from io_sudoku.core.projectrules import all_dupes, rule_outcomes
 from io_sudoku.core.textnorm import match_key, to_int
 
 SEP = "~"                                   # slot id: 'P30-DCM-32001-01~1~2~3' (cabinet, CIOC 1-4, baseplate, channel)
@@ -101,6 +101,7 @@ class Context:
     wired_n: Counter = field(default_factory=Counter)                          # (controller, IO type) -> wired spares
     free: Counter = field(default_factory=Counter)                             # cabinet -> Spare Slots
     questions: list[tuple[str, Any]] = field(default_factory=list)             # (ref key, error/warning TQ)
+    dupes: dict[int, dict[int, set[str]]] = field(default_factory=dict)        # project rule -> check -> repeated values
 
 
 def context(result: Any) -> Context:
@@ -124,6 +125,10 @@ def context(result: Any) -> Context:
             ctx.mates.setdefault(match_key(_s(r, "Field Cable No")) or "", []).append(r)
     ctx.questions = [(match_key(t.ref) or "", t) for t in getattr(result, "tqs", []) or []
                      if t.severity in ("error", "warning")]
+    for i, rule in enumerate(cfg.rules.project_rules if cfg is not None else ()):
+        found = all_dupes(rule, rows)
+        if found:
+            ctx.dupes[i] = found
     return ctx
 
 
@@ -237,11 +242,10 @@ def check_cell(result: Any, row: dict[str, Any], *, overrides: list[Any] | None 
                 add(INFO, "Project rule", "Instrument hardware", f"'{instrument}' uses profile {rules.instrument_profiles[instrument]}")
             if seg in {c.upper() for c in rules.neutral_codes}:
                 add(INFO, "Project rule", "Segregation code", f"{seg} counts as neutral (may share a CIOC with A or B)")
-        for rule in rules.project_rules:
-            if matches(rule, row):
-                o = judge(rule, row)
-                add(INFO if o.ok is None else (PASS if o.ok else FAIL), "Project rule", str(rule.get("statement") or rule.get("kind")),
-                    o.detail)
+        for i, rule in enumerate(rules.project_rules):
+            for title, o, severity in rule_outcomes(rule, row, ctx.dupes.get(i)):
+                add(INFO if o.ok is None else (PASS if o.ok else (WARN if severity == "warning" and rule.get("kind") == "column_rule"
+                                                                  else FAIL)), "Project rule", title, o.detail)
         if cfg is not None and cfg.cabinet_by_marshalling(cab) is not None and cfg.cabinet_by_marshalling(cab).inferred:
             add(WARN, "Topology", "Cabinet name inferred", f"{cab} was inferred from names; confirm it")
 
