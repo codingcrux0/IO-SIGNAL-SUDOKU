@@ -48,7 +48,7 @@ KEYS = {"mdb_bytes": None, "mdb_name": None, "mdb_sha": None, "template_bytes": 
         "history": [], "edit_target": None, "edit_return": None, "mdb_original": None, "edit_log": [], "scroll_to": None,
         "rc_cells": [], "tq_notes": {}, "suggestions": [], "chat": None, "chats": {}, "answer_check": None, "confirm": None,
         "inputs_by_key": {}, "blobs": {}, "ri_pick": None, "review_log": [], "edit_tq": None, "rev_preview": None,
-        "rev_library": [], "file_revs": [],
+        "rev_library": [], "file_revs": [], "signal_requests": [], "col_notes": {},
         "sim_pct": 5, "sim_seed": 1, "sim_moved": 15.0, "sim_renamed": 3.0, "sim_added": 10.0, "sim_deleted": 5.0}
 STALE_REASON = "Your inputs changed after this allocation (for example the file was edited). Re-allocate to check them."
 
@@ -67,6 +67,8 @@ def init_state() -> None:
         s["pack"] = default_pack()
     for key in _PERSIST:
         s[key] = s[key]
+    from io_sudoku.ui import drafts
+    drafts.keep_alive()                          # half-typed forms survive another page or tab
     if not s.get("_url_read"):
         s["_url_read"] = True
         _open_view(st.query_params.get("view"))
@@ -262,8 +264,9 @@ def is_up_to_date() -> bool:
     return s["result"] is not None and not s.get("stale") and s.get("solve_key") == inputs_key()
 
 
-def on_solve(remember_run: bool = True) -> None:
-    """The ONLY place a solve is started.  A failure keeps the last good result on screen."""
+def on_solve(remember_run: bool = True, review: bool = True) -> None:
+    """The ONLY place a solve is started.  A failure keeps the last good result on screen.  `review` = False when
+    the work is only being brought back (nothing was re-allocated, so the review memory gets no new events)."""
     s = st.session_state
     if not s["mdb_bytes"]:
         s["ui_error"] = "Upload an MDB file or load the sample data first."
@@ -280,7 +283,8 @@ def on_solve(remember_run: bool = True) -> None:
         if remember_run:
             remember(result, "Allocation run", s["mdb_name"] or "MDB", s["mdb_sha"] or "", key)
             _keep_inputs(key)
-        s["review_log"] = reviewlog.after_solve(s["review_log"], before, result, revision_name(), time.strftime("%Y-%m-%d %H:%M"))
+        if review:
+            s["review_log"] = reviewlog.after_solve(s["review_log"], before, result, revision_name(), time.strftime("%Y-%m-%d %H:%M"))
         if s["selected_cabinet"] not in ui_logic.cabinet_names(result.rows) and not str(s["selected_cabinet"] or "").endswith("All Cabinet Drawings"):
             s["selected_cabinet"] = (ui_logic.cabinet_names(result.rows) or [None])[0]
     except Exception:  # noqa: BLE001
@@ -323,12 +327,42 @@ def reviewer() -> str:
     return (s.get("note_by") or s.get("answer_by") or "").strip()
 
 
-def note_review(tq_id: str, ref: str, action: str, detail: str = "", by: str | None = None) -> None:
-    """Write one review decision down (what, who, when, which revision, where the signal sat)."""
+def note_review(tq_id: str, ref: str, action: str, detail: str = "", by: str | None = None,
+                changes: list[dict] | None = None) -> None:
+    """Write one review decision down (what, who, when, which revision, where the signal sat) with the exact cells
+    of the signal that were changed before it (`changes`; None = look them up in Your Changes)."""
     s = st.session_state
+    if changes is None:
+        changes = changes_before(ref)
     event = reviewlog.make_event(s["result"], tq_id, ref, action, detail=detail, by=reviewer() if by is None else by,
-                                 time=time.strftime("%Y-%m-%d %H:%M"), revision=revision_name())
+                                 time=time.strftime("%Y-%m-%d %H:%M"), revision=revision_name(), changes=changes)
     s["review_log"] = reviewlog.record(s["review_log"], event)
+
+
+def _as_change(entry: dict) -> dict:
+    """One line of Your Changes (edit_log) as a review change."""
+    return {"Sheet": str(entry.get("Sheet", "")), "Row": str(entry.get("Row", "")), "Column": str(entry.get("Column", "")),
+            "Before": str(entry.get("Old Value", "")), "After": str(entry.get("New Value", "")),
+            "When": str(entry.get("Time", ""))}
+
+
+def changes_before(ref: str) -> list[dict]:
+    """The cells of this signal's own row that were changed (Your Changes) and that no earlier decision on it lists
+    yet: so an Approve made after an edit shows exactly what was edited before it."""
+    s = st.session_state
+    if not s.get("mdb_bytes") or not s.get("edit_log"):
+        return []
+    try:
+        index = ui_logic.edit_index(s["mdb_bytes"], json.dumps(s["column_overrides"], sort_keys=True), ui_logic.pack_json(s["pack"]))
+        where = index.tags.get(reviewlog.item_key(ref))
+    except Exception:  # noqa: BLE001 - without the index the decision is still written down
+        return []
+    if where is None:
+        return []
+    key = reviewlog.item_key(ref)
+    listed = {reviewlog.change_key(c) for e in s["review_log"] if e.item == key for c in e.changes}
+    out = [_as_change(x) for x in s["edit_log"] if (x.get("Sheet"), x.get("Row")) == tuple(where)]
+    return [c for c in out if reviewlog.change_key(c) not in listed]
 
 
 def remember(result, source: str, file_name: str, input_sha: str, solve_key: str) -> None:
@@ -542,7 +576,8 @@ def apply_cell_edits(edits: list[editing.CellEdit], go_back: bool, kind: str = "
     if s.get("edit_tq"):
         tq_id, ref = s["edit_tq"]
         note_review(tq_id, ref, "edited", "; ".join(f"row {e.row} {e.header}: '{'' if e.old is None else e.old}' → "
-                                                   f"'{'' if e.new is None else e.new}'" for e in edits[:6]))
+                                                   f"'{'' if e.new is None else e.new}'" for e in edits[:6]),
+                    changes=[_as_change(x) for x in s["edit_log"][-len(edits):]])
     where = f"row {edits[0].row}, “{edits[0].header}”" if len(edits) == 1 else f"{len(edits)} cells"
     flash("success", f"Saved: {where}, as the file revision “{rev.name if rev else 'Edit'}”. The allocation is out of "
                      "date until you press Re-allocate.", "" if go_back else "Find A Cell")
@@ -615,7 +650,13 @@ def on_sample() -> None:
 
 
 def reset_session() -> None:
+    from io_sudoku.ui import drafts
     s = st.session_state
+    for key in [k for k in list(s.keys()) if isinstance(k, str) and (drafts.DRAFT_KEYS.match(k) or k in drafts.FORM_DATA)]:
+        try:
+            del s[key]                           # the half-typed forms go too
+        except Exception:  # noqa: BLE001
+            pass
     for key, default in KEYS.items():
         s[key] = copy.deepcopy(default)
     s["pack"] = default_pack()

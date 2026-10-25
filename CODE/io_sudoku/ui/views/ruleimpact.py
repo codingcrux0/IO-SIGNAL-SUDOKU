@@ -17,7 +17,7 @@ import streamlit as st
 
 from io_sudoku.core import helpcontext, ruleimpact as ri
 from io_sudoku.core.overrides import overrides_to_json
-from io_sudoku.ui import state, theme, ui_logic
+from io_sudoku.ui import autofill, state, theme, ui_logic
 from io_sudoku.ui.nav import link, link_to
 from io_sudoku.ui.views import assistant
 from io_sudoku.ui.views._common import heading, md_escape, result_or_empty
@@ -88,6 +88,7 @@ def _pick(impacts: list[ri.Impact], full_key: str) -> ri.Impact | None:
     with st.container(horizontal=True, gap="medium", vertical_alignment="center", key="ri_filters"):
         st.segmented_control("Kind Of Rule", groups, key="ri_group", label_visibility="collapsed")
         st.toggle("Problems Only", key="ri_problems", help="Only rules that are broken or need a look somewhere.")
+    autofill.offer("ri_find", [x.title for x in impacts] + [x.rule for x in impacts] + list(groups[1:]))
     needle = st.text_input("Search The Rules", key="ri_find", autocomplete="off",
                            placeholder="For example spares, segregation, CHARM, V06, a TQ name…").strip().casefold()
     group = s.get("ri_group") or ALL_GROUPS
@@ -193,6 +194,7 @@ def _cells(impact: ri.Impact) -> None:
     left, right = st.columns([2, 3], vertical_alignment="bottom")
     only = left.segmented_control("Show Cells", ("Every Cell", "Problems Only"), key="ri_cells_show",
                                   default="Every Cell", label_visibility="collapsed") == "Problems Only"
+    autofill.offer("ri_cells_find", autofill.tags() + autofill.column("Field Cable No"))
     find = right.text_input("Find A Cell (case-sensitive)", key="ri_cells_find", autocomplete="off",
                             placeholder="A tag, cable, CHARM type or cabinet…").strip()
     hits = [h for h in impact.hits if (not only or h.status in (ri.FAIL, ri.WARN))

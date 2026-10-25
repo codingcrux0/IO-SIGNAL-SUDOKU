@@ -116,11 +116,11 @@ PLACES: tuple[Place, ...] = (
     _p("Rules", "Locked Rules", "locked fixed cannot change hard rules", label="Rules › Locked Rules"),
     _p("Rules", "", "project choices customer specific alarm baseplate cabinet alarms spare percentage segregation codes "
        "naming unconnected baseplates", label="Rules › Project Choices"),
-    _p("Rules", "Propose A Rule", "propose rule change template engineering settings cabinet alarm baseplate spare percent future space alias "
+    _p("Rules", "Propose Rules", "propose rule change template engineering settings cabinet alarm baseplate spare percent future space alias "
        "cabinet segregation code instrument hardware high current", label="Rules › Engineering Settings"),
-    _p("Rules", "Propose A Rule", "add new signal tag row later arrives input cable pair room", "rule_group", "Add A Signal",
+    _p("Rules", "Propose Rules", "add new signal tag row later arrives input cable pair room", "rule_group", "Add A Signal",
        label="Rules › Add A Signal"),
-    _p("Rules", "Propose A Rule", "column columns checks constraint new project column voltage values per signal max "
+    _p("Rules", "Propose Rules", "column columns checks constraint new project column voltage values per signal max "
        "min between blank one of duplicate error warning paste upload fill", "rule_group", "Columns And Checks",
        label="Rules › Columns And Checks"),
     _p("Rules", "Review Queue", "approve verify reject proposal"),

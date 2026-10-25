@@ -17,8 +17,8 @@ from io_sudoku.core import suggestion as sg_mod
 from io_sudoku.core.pipeline import solve
 from io_sudoku.core.projectrules import project_columns
 from io_sudoku.core.rulepack import LOCKED_RULES, pack_from_dict, pack_hash, pack_to_dict, project_choices, validate_pack
-from io_sudoku.ui import rulescope, state, ui_logic
-from io_sudoku.ui.views import addsignal, columns
+from io_sudoku.ui import autofill, rulescope, state, ui_logic
+from io_sudoku.ui.views import addsignal, colnotes, columns
 from io_sudoku.ui.views._common import ask_first, heading, md_escape
 
 SETTINGS = [k for k in rc.TEMPLATES if k not in rc.PROJECT_TEMPLATES]
@@ -42,6 +42,8 @@ PICK_FROM = {("instrument_profile", "instrument"): "Instrument type", ("segregat
 ARG_LABELS = {"io": "IO Type", "match_column": "Look At Column", "match_text": "That Contains", "charm_type": "Must Use CHARM",
               "check_column": "Must Have Filled In", "column": "New Column Name", "value": "Value", "pct": "Percent",
               "alarm_cioc": "CIOC", "alarm_bp": "Baseplate"}
+SETTINGS_WHERE = "rule_propose"                 # messages about Propose Setting are shown right under the button
+NAME_HINT = " (Your Name is at the top of Propose Rules.)"
 QUEUE, SUGGESTIONS, PREVIEW, ACTIVE = "Review Queue", "Suggested Fixes Waiting For Verification", "Preview And Activate", \
     "Project Rules And Where They Apply"
 
@@ -108,10 +110,11 @@ def _propose(template: str) -> None:
     args = {a.name: s.get(f"rf_{template}_{a.name}") for a in spec.args}
     proposal, errors = rc.build_proposal(template, args, s.get("rule_author") or "", now=_now(), known_rooms=_rooms())
     if proposal is None:
-        state.flash("error", " ".join(errors), "Propose A Rule")
+        state.flash("error", " ".join(errors) + NAME_HINT * (not str(s.get("rule_author") or "").strip()), SETTINGS_WHERE)
         return
     s["proposals"] = s["proposals"] + [proposal]
-    state.flash("success", f"Proposed: {proposal.statement} It waits in the Review Queue: press Verify there to accept it.", "Propose A Rule")
+    s["scroll_to"] = QUEUE
+    state.flash("success", f"Proposed: {proposal.statement} It waits in the Review Queue: press Verify there to accept it.", QUEUE)
 
 
 def _client():
@@ -284,15 +287,20 @@ def _wording(template: str, spec: dict) -> str:
 
 def _propose_form() -> None:
     s = st.session_state
-    heading("Propose A Rule", GROUP_HELP)
+    heading("Propose Rules", GROUP_HELP)
     if s.get("rule_group") not in GROUPS:          # pressing the chosen button again clears it: keep the last
         s["rule_group"] = s.get("rule_group_last") if s.get("rule_group_last") in GROUPS else columns.GROUP
     s["rule_group_last"] = s["rule_group"]
     a, b = st.columns([1, 1.4], vertical_alignment="bottom")
+    autofill.offer("rule_author", autofill.names())
     a.text_input("Your Name", key="rule_author", autocomplete="off", placeholder="Who is proposing this?…")
     with b:
         st.segmented_control("Kind Of Rule", list(GROUPS), key="rule_group", label_visibility="collapsed")
     if s["rule_group"] == columns.GROUP:
+        try:                                    # notes are optional: a strange file must never break the form
+            colnotes.render()
+        except Exception:  # noqa: BLE001
+            pass
         with st.container(border=True, key="column_form_box"):
             columns.render()
     else:
@@ -334,8 +342,11 @@ def _settings_form() -> None:
             if all(v not in (None, "") for v in args.values()):
                 st.caption(f"Right now this rule would cover {len(_covered(template, args)):,} signals "
                            f"({rulescope.scope_text(template, args)}).")
+        if not str(s.get("rule_author") or "").strip():
+            st.caption("⚠ Write your name in Your Name at the top of Propose Rules first: every proposal needs an author.")
         st.button("Propose Setting", key="rule_propose", type="primary", on_click=_propose, args=(template,),
                   help="It goes to the Review Queue below; it is used only after Verify and Preview And Activate.")
+        state.show_flash(SETTINGS_WHERE)
 
 
 def _status(status: str) -> str:
@@ -346,18 +357,26 @@ def _status(status: str) -> str:
 
 def _queue() -> None:
     s = st.session_state
-    heading(QUEUE, "Review each proposed rule here: press Verify to accept it, or Reject. Verified rules are used "
-                   "only after Preview And Activate.")
-    if not s["proposals"]:
-        st.caption("No rules have been proposed yet.")
+    heading(QUEUE, "Review each proposal here: rules, columns and new signals. Press Verify to accept one, or "
+                   "Reject. Verified rules are used only after Preview And Activate; a verified signal is written into "
+                   "your file at once.")
+    signals = list(s.get(addsignal.LIST_KEY) or [])
+    if not s["proposals"] and not signals:
+        st.caption("Nothing has been proposed yet.")
         return
-    waiting = sum(1 for p in s["proposals"] if p.status == "pending")
-    st.caption(f"{len(s['proposals']):,} proposed · {waiting:,} waiting for verification · newest first"
-               + (" · scroll inside the box to see them all" if len(s["proposals"]) > 3 else ""))
-    box = st.container(height=560, key="review_queue_box") if len(s["proposals"]) > 3 else st.container()
+    items = [((p.created or "", i), "rule", p) for i, p in enumerate(s["proposals"])] + \
+        [((r["created"], i), "signal", r) for i, r in enumerate(signals)]
+    items.sort(key=lambda x: x[0], reverse=True)              # newest first
+    waiting = sum(1 for p in s["proposals"] if p.status == "pending") + sum(1 for r in signals if r["status"] == "pending")
+    st.caption(f"{len(items):,} proposed · {waiting:,} waiting for verification · newest first"
+               + (" · scroll inside the box to see them all" if len(items) > 3 else ""))
+    box = st.container(height=560, key="review_queue_box") if len(items) > 3 else st.container()
     with box:
-        for p in reversed(s["proposals"]):
-            _proposal_card(p)
+        for _, kind, item in items:
+            if kind == "rule":
+                _proposal_card(item)
+            else:
+                addsignal.card(item, _status(item["status"]), _decision_buttons)
 
 
 def _proposal_card(p) -> None:

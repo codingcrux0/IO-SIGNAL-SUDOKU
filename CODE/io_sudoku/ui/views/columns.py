@@ -23,11 +23,13 @@ import streamlit as st
 
 from io_sudoku.core import projectrules as pr
 from io_sudoku.core import rulechange as rc
-from io_sudoku.ui import state
+from io_sudoku.ui import autofill, state
 from io_sudoku.ui.views._common import md_escape
 
 GROUP = "Columns And Checks"
-WHERE = "Propose A Rule"
+WHERE = "Propose Rules"
+BUTTON_WHERE = "cb_propose"                     # messages about the Propose button are shown right under it
+QUEUE = "Review Queue"
 NEW = "__new__"
 TYPE_LABELS = {"text": "Text", "number": "Number"}
 SEV_LABELS = {"error": "Error · blocks the result", "warning": "Warning · sign off"}
@@ -45,7 +47,14 @@ MAX_PICKS = 400
 DEFAULTS: dict[str, Any] = {"cb_target": NEW, "cb_name": "", "cb_type": "text", "cb_unit": "", "cb_note": "",
                             "cb_values": {}, "cb_ver": 0, "cb_view": None, "cb_find": "", "cb_show": "All",
                             "cb_fills": [], "cb_default": "", "cb_checks": [], "cb_uid": 0, "cb_set_value": "",
-                            "cb_paste": "", "cb_ai_request": "", "cb_result": None}
+                            "cb_paste": "", "cb_ai_request": "", "cb_result": None, "cb_filters": [], "cb_match": "All",
+                            "cb_sort": "tag", "cb_picked": [], "cb_apply_to": "shown"}
+MATCH = {"All": "Every filter matches", "Any": "Any filter matches"}
+FILTER_HOWS = {"contains": "contains", "is": "is exactly", "starts": "starts with", "not": "does not contain"}
+SORTS = {"tag": "Tag (A → Z)", "tag_desc": "Tag (Z → A)", "io": "IO Type", "instrument": "Instrument", "cabinet": "Cabinet",
+         "value": "Value (low → high)", "value_desc": "Value (high → low)", "blank": "Blank values first"}
+SORT_COLUMNS = {"io": "IO Type", "instrument": "Instrument type", "cabinet": "Electronic/ Marshalling Cabinet"}
+APPLY = ("picked", "shown")
 
 
 # ----------------------------------------------------------------------------------------------- state
@@ -128,15 +137,20 @@ def _editor_key() -> str:
     return f"cb_editor_{st.session_state.get('cb_ver', 0)}"
 
 
+def _edits() -> tuple[list[str], dict]:
+    """(the tag keys of the table's rows, the edits waiting in the table) - empty when the table is not current."""
+    s = st.session_state
+    view = s.get("cb_view")
+    if not view or view[0] != s.get("cb_ver"):
+        return [], {}
+    return view[1], (s.get(_editor_key()) or {}).get("edited_rows") or {}
+
+
 def _typed() -> dict[str, str]:
     """The values typed by hand: those saved so far plus the edits waiting in the table."""
     s = st.session_state
     typed = dict(s.get("cb_values") or {})
-    view = s.get("cb_view")
-    edits = (s.get(_editor_key()) or {}).get("edited_rows") or {}
-    if not view or view[0] != s.get("cb_ver"):
-        return typed
-    keys = view[1]
+    keys, edits = _edits()
     for index, change in edits.items():
         try:
             key = keys[int(index)]
@@ -147,10 +161,33 @@ def _typed() -> dict[str, str]:
     return typed
 
 
+def _picked() -> set[str]:
+    """The signals ticked in the table's Pick column (saved so far plus the ticks waiting in the table)."""
+    s = st.session_state
+    picked = set(s.get("cb_picked") or [])
+    keys, edits = _edits()
+    for index, change in edits.items():
+        try:
+            key = keys[int(index)]
+        except (ValueError, IndexError):
+            continue
+        if "Pick" in change:
+            (picked.add if change["Pick"] else picked.discard)(key)
+    return picked
+
+
+def _keep_edits() -> None:
+    """Every edit in the table is saved at once, so it is kept when you open another page or tab."""
+    s = st.session_state
+    s["cb_values"] = _typed()
+    s["cb_picked"] = sorted(_picked())
+
+
 def _fold() -> None:
     """Save the table's edits as typed values and start a fresh table (after a filter or a bulk change)."""
     s = st.session_state
     s["cb_values"] = _typed()
+    s["cb_picked"] = sorted(_picked())
     s["cb_ver"] = int(s.get("cb_ver") or 0) + 1
     s["cb_view"] = None
 
@@ -206,6 +243,7 @@ def _load(args: dict[str, Any], target: str, keep_values: bool = False) -> None:
     s["cb_ver"] = int(s.get("cb_ver") or 0) + 1
     s["cb_view"] = None
     s["cb_find"], s["cb_show"], s["cb_set_value"] = "", "All", ""
+    s["cb_filters"], s["cb_picked"] = [], []
     s["cb_fills"] = []
     for f in args.get("fills") or []:
         u = _uid()
@@ -287,7 +325,7 @@ def remove_rule(rule: dict[str, Any], where: str) -> None:
     proposal, errors = rc.build_proposal("column_rule", {"new": new, "column": a.get("column"), "remove": True},
                                          s.get("rule_author") or "", now=_now())
     if proposal is None:
-        state.flash("error", " ".join(errors) + " (Your Name is at the top of Propose A Rule.)", where)
+        state.flash("error", " ".join(errors) + " (Your Name is at the top of Propose Rules.)", where)
         return
     s["proposals"] = s["proposals"] + [proposal]
     state.flash("success", f"Proposed: {proposal.statement} It waits in the Review Queue.", where)
@@ -325,10 +363,16 @@ def _clear() -> None:
 
 
 def _set_shown(clear: bool) -> None:
-    """Give every signal shown in the table one value (or take away their typed values)."""
+    """Give the picked signals (or every signal shown in the table) one value, or take away their typed values."""
     s = st.session_state
-    keys = (s.get("cb_view") or (None, []))[1]
+    shown = list((s.get("cb_view") or (None, []))[1])
     _fold()
+    picked = set(s.get("cb_picked") or [])
+    on_picked = s.get("cb_apply_to") == "picked"
+    keys = [k for k in s.get("cb_all_keys") or shown if k in picked] if on_picked else shown
+    if on_picked and not keys:
+        state.flash("warning", "No signal is picked yet: tick the Pick box of the signals in the table first.", WHERE)
+        return
     value = _text(s.get("cb_set_value"))
     if not clear and _number() and value and pr.to_number(value) is None:
         state.flash("error", f"'{value}' is not a number, and this is a number column.", WHERE)
@@ -340,8 +384,64 @@ def _set_shown(clear: bool) -> None:
         else:
             typed[key] = pr.show_number(pr.to_number(value)) if _number() and value else value
     s["cb_values"] = typed
-    state.flash("success", (f"Took away the typed values of {len(keys):,} signals." if clear else
-                            f"Gave {len(keys):,} signals the value “{value or 'blank'}”."), WHERE)
+    who = f"{len(keys):,} picked signals" if on_picked else f"{len(keys):,} signals"
+    state.flash("success", (f"Took away the typed values of {who}." if clear else
+                            f"Gave {who} the value “{value or 'blank'}”. Pick others to give them a different value, "
+                            "or type a single signal's value in the table."), WHERE)
+
+
+def _pick_shown(on: bool) -> None:
+    """Tick (or untick) every signal shown in the table."""
+    s = st.session_state
+    shown = list((s.get("cb_view") or (None, []))[1])
+    _fold()
+    picked = set(s.get("cb_picked") or [])
+    s["cb_picked"] = sorted(picked | set(shown)) if on else sorted(picked - set(shown))
+    if on and shown:
+        s["cb_apply_to"] = "picked"
+
+
+def _unpick_all() -> None:
+    s = st.session_state
+    _fold()
+    s["cb_picked"] = []
+    s["cb_apply_to"] = "shown"
+
+
+def _add_filter() -> None:
+    s = st.session_state
+    _fold()
+    u = _uid()
+    s[f"cb_q{u}_col"], s[f"cb_q{u}_how"], s[f"cb_q{u}_text"] = "IO Type", "contains", None
+    s["cb_filters"] = list(s.get("cb_filters") or []) + [u]
+
+
+def _drop_filter(u: int) -> None:
+    _fold()
+    st.session_state["cb_filters"] = [x for x in st.session_state.get("cb_filters") or [] if x != u]
+
+
+def _clear_filters() -> None:
+    s = st.session_state
+    _fold()
+    s["cb_filters"], s["cb_find"] = [], ""
+
+
+def _filter_ok(u: int, row: dict[str, Any]) -> bool | None:
+    """Does the row pass filter u?  None = the filter has no text yet (it is ignored)."""
+    s = st.session_state
+    text = _text(s.get(f"cb_q{u}_text")).casefold()
+    if not text:
+        return None
+    have = " ".join(_text(row.get(s.get(f"cb_q{u}_col") or "IO Type")).casefold().split())
+    how = s.get(f"cb_q{u}_how") or "contains"
+    if how == "is":
+        return have == " ".join(text.split())
+    if how == "starts":
+        return have.startswith(text)
+    if how == "not":
+        return text not in have
+    return text in have
 
 
 def _read_pairs(text: str, upload: Any) -> list[tuple[str, str]]:
@@ -417,12 +517,14 @@ def _propose() -> None:
     s = st.session_state
     proposal, errors = rc.build_proposal("column_rule", _draft(), s.get("rule_author") or "", now=_now())
     if proposal is None:
-        state.flash("error", " ".join(errors), WHERE)
+        named = bool(str(s.get("rule_author") or "").strip())
+        state.flash("error", " ".join(errors) + ("" if named else " (Your Name is at the top of Propose Rules.)"), BUTTON_WHERE)
         return
     s["proposals"] = s["proposals"] + [proposal]
     _clear()
+    s["scroll_to"] = QUEUE
     state.flash("success", f"Proposed: {proposal.statement} It waits in the Review Queue: press Verify there, then "
-                           "Preview And Activate.", WHERE)
+                           "Preview And Activate.", QUEUE)
 
 
 def _client():
@@ -465,7 +567,8 @@ def _counts(column: str, signals: list[dict[str, Any]]) -> Counter:
     return Counter(_text(r.get(column)) for r in signals if _text(r.get(column)) not in ("", "-"))
 
 
-def _picker(label: str, key: str, options: Counter, placeholder: str = "Pick or type…", help: str | None = None) -> None:
+def _picker(label: str, key: str, options: Counter, placeholder: str = "Pick or type…", help: str | None = None,
+            on_change=None) -> None:
     """A dropdown of the values that are really in the allocation (most common first, with how many signals
     have each) that also takes a value you type."""
     s = st.session_state
@@ -475,7 +578,7 @@ def _picker(label: str, key: str, options: Counter, placeholder: str = "Pick or 
         choices = [current] + choices
     if key not in s:
         s[key] = None
-    st.selectbox(label, choices, key=key, accept_new_options=True, placeholder=placeholder, help=help,
+    st.selectbox(label, choices, key=key, accept_new_options=True, placeholder=placeholder, help=help, on_change=on_change,
                  format_func=lambda v: f"{v}  ·  {options[v]:,}" if options.get(v) else str(v))
 
 
@@ -496,6 +599,25 @@ def _scope_widgets(prefix: str, signals: list[dict[str, Any]], with_all: bool) -
                          "each. You can also type part of a value.")
 
 
+def _used_values(signals: list[dict[str, Any]]) -> list[str]:
+    """The values this column already has (typed, filled or in the allocation), most common first."""
+    if not _is_new():
+        return [v for v, _ in _counts(_column_name(), signals).most_common()]
+    rule = {"kind": "column_rule", "args": {**_draft(values=st.session_state.get("cb_values") or {}), "new": True}}
+    counts = Counter(v for v in (pr.column_value(rule, r)[0] for r in signals) if v)
+    return [v for v, _ in counts.most_common()]
+
+
+def _file_columns() -> list[str]:
+    """Names of the columns of the uploaded file that the allocation does not read (a new column is often one)."""
+    import json
+    s = st.session_state
+    if not s.get("mdb_bytes"):
+        return []
+    from io_sudoku.ui.views import colnotes
+    return [h for h, _, _ in colnotes._unused(s["mdb_bytes"], json.dumps(s["column_overrides"], sort_keys=True))]
+
+
 def _scope_count(scope: dict[str, Any], signals: list[dict[str, Any]]) -> int:
     return sum(1 for r in signals if pr.in_scope(scope, r))
 
@@ -514,9 +636,11 @@ def render() -> None:
     with b:
         st.segmented_control("Values Are", list(TYPE_LABELS), key="cb_type", format_func=TYPE_LABELS.get,
                              help="Number columns can have at most / at least / between checks; their values must be numbers.")
+    autofill.offer("cb_unit", autofill.UNITS)
     c.text_input("Unit", key="cb_unit", max_chars=pr.LIMITS["unit"], placeholder="V, mA, °C …", disabled=not _number(),
                  autocomplete="off")
     if s["cb_target"] == NEW:
+        autofill.offer("cb_name", _file_columns())
         st.text_input("New Column Name", key="cb_name", max_chars=pr.LIMITS["column"], placeholder="For example: Voltage",
                       autocomplete="off")
     n, p = st.columns([5, 1.3], vertical_alignment="bottom")
@@ -556,16 +680,72 @@ def _values(signals: list[dict[str, Any]]) -> None:
                 top.markdown(f"**Fill rule {i}**")
                 bin_.button("🗑", key=f"cb_f{u}_drop", on_click=_drop, args=("cb_fills", u), help="Remove this fill rule")
                 _scope_widgets(f"cb_f{u}", signals, with_all=True)
+                autofill.offer(f"cb_f{u}_val", _used_values(signals))
                 st.text_input("These Signals Get", key=f"cb_f{u}_val", max_chars=pr.LIMITS["value"], autocomplete="off",
                               placeholder="Leave empty for blank")
                 scope = _scope_of(f"cb_f{u}")
                 if signals:
                     st.caption(f"Covers {_scope_count(scope, signals):,} signals right now.")
         st.button("➕ Add A Fill Rule", key="cb_add_fill", on_click=_add_fill)
+        autofill.offer("cb_default", _used_values(signals))
         st.text_input("Every Other Signal Gets", key="cb_default", max_chars=pr.LIMITS["value"], autocomplete="off",
                       placeholder="Leave empty to keep them blank",
                       help="The value of every signal that has no typed value and no fill rule. Use it to give every "
                            "signal the same value, or leave it empty for blank.")
+
+
+def _filters(signals: list[dict[str, Any]]) -> None:
+    """Find + any number of filters (each: a column, how, a value), all or any of them, and a sort order."""
+    s = st.session_state
+    f, g = st.columns([2.6, 2.4], vertical_alignment="bottom")
+    autofill.offer("cb_find", [_text(r.get(c)) for _, c in SHOWN_COLUMNS if c != "Service Description" for r in signals],
+                   sep=",")
+    f.text_input("Find Signals", key="cb_find", on_change=_fold, autocomplete="off",
+                 placeholder="Tag, IO type, instrument, service or cabinet · several with commas")
+    g.segmented_control("Show", list(SHOW), key="cb_show", on_change=_fold,
+                        help="Filled = has a value · Blank = no value · Typed = typed by hand")
+    for i, u in enumerate(list(s.get("cb_filters") or []), 1):
+        if s.get(f"cb_q{u}_col") not in pr.MATCH_COLUMNS:
+            s[f"cb_q{u}_col"] = "IO Type"
+        if s.get(f"cb_q{u}_how") not in FILTER_HOWS:
+            s[f"cb_q{u}_how"] = "contains"
+        a, b, c, d = st.columns([1.4, 1.1, 1.8, .35], vertical_alignment="bottom")
+        a.selectbox(f"Filter {i}: Column", pr.MATCH_COLUMNS, key=f"cb_q{u}_col", on_change=_fold)
+        b.selectbox("How", list(FILTER_HOWS), key=f"cb_q{u}_how", format_func=FILTER_HOWS.get, on_change=_fold)
+        with c:
+            _picker("Value", f"cb_q{u}_text", _counts(s.get(f"cb_q{u}_col") or "IO Type", signals), on_change=_fold,
+                    help="The values really in this column, with how many signals have each. You can type part of one.")
+        d.button("🗑", key=f"cb_q{u}_drop", on_click=_drop_filter, args=(u,), help="Remove this filter")
+    with st.container(horizontal=True, gap="small", vertical_alignment="bottom", key="cb_filter_bar"):
+        st.button("➕ Add A Filter", key="cb_add_filter", on_click=_add_filter,
+                  help="Narrow the table down with more filters, for example IO Type is AIR and Cabinet contains 01.")
+        if len(s.get("cb_filters") or []) > 1:
+            st.segmented_control("Combine", list(MATCH), key="cb_match", format_func=MATCH.get, on_change=_fold,
+                                 label_visibility="collapsed")
+        if s.get("cb_filters") or str(s.get("cb_find") or "").strip():
+            st.button("Clear Filters", key="cb_clear_filters", on_click=_clear_filters)
+        st.selectbox("Sort By", list(SORTS), key="cb_sort", format_func=SORTS.get, on_change=_fold,
+                     label_visibility="collapsed", width=200)
+
+
+def _sorted(keys: list[str], by_key: dict[str, dict[str, Any]], rule_typed: dict[str, Any]) -> list[str]:
+    how = st.session_state.get("cb_sort") or "tag"
+    if how in ("tag", "tag_desc"):
+        return sorted(keys, key=lambda k: _text(by_key[k].get("Tag Name")).casefold(), reverse=how == "tag_desc")
+    if how in SORT_COLUMNS:
+        return sorted(keys, key=lambda k: (_text(by_key[k].get(SORT_COLUMNS[how])).casefold(),
+                                           _text(by_key[k].get("Tag Name")).casefold()))
+    values = {k: pr.column_value(rule_typed, by_key[k])[0] for k in keys}
+    if how == "blank":
+        return sorted(keys, key=lambda k: (bool(values[k]), _text(by_key[k].get("Tag Name")).casefold()))
+    def number(k: str) -> tuple:
+        x = pr.to_number(values[k])
+        return (x is None, x if x is not None else 0, values[k].casefold())
+    ordered = sorted(keys, key=number)
+    if how == "value_desc":
+        filled = [k for k in ordered if pr.to_number(values[k]) is not None][::-1]
+        return filled + [k for k in ordered if pr.to_number(values[k]) is None]
+    return ordered
 
 
 def _table(signals: list[dict[str, Any]], rule_now: dict[str, Any]) -> None:
@@ -575,35 +755,39 @@ def _table(signals: list[dict[str, Any]], rule_now: dict[str, Any]) -> None:
         st.info("Run an allocation first: then every signal is listed here to type its value. Fill rules and "
                 "checks work without it.")
         return
-    f, g = st.columns([2.6, 2.4], vertical_alignment="bottom")
-    f.text_input("Find Signals", key="cb_find", on_change=_fold, autocomplete="off",
-                 placeholder="Tag, IO type, instrument, service or cabinet · several with commas")
-    g.segmented_control("Show", list(SHOW), key="cb_show", on_change=_fold,
-                        help="Filled = has a value · Blank = no value · Typed = typed by hand")
+    _filters(signals)
     typed = _typed()
     by_key = {pr.tag_key(r.get("Tag Name")): r for r in signals}
+    s["cb_all_keys"] = list(by_key)
     view = s.get("cb_view")
+    rule_typed = {"kind": "column_rule", "args": {**rule_now["args"], "values": typed}}
     if not view or view[0] != s["cb_ver"]:                      # which rows the table shows, fixed until the next fold
         words = [w.strip().casefold() for w in str(s.get("cb_find") or "").split(",") if w.strip()]
         show = s.get("cb_show") or "All"
+        filters = list(s.get("cb_filters") or [])
+        any_mode = s.get("cb_match") == "Any"
         keys = []
         for key, r in by_key.items():
             if words and not any(w in " ".join(_text(r.get(c)) for _, c in SHOWN_COLUMNS).casefold() for w in words):
+                continue
+            results = [x for x in (_filter_ok(u, r) for u in filters) if x is not None]
+            if results and not (any(results) if any_mode else all(results)):
                 continue
             value = typed[key] if key in typed else pr.column_value(rule_now, r)[0]
             if (show == "Filled" and not value) or (show == "Blank" and value) or (show == "Typed" and key not in typed):
                 continue
             keys.append(key)
-        s["cb_view"] = view = (s["cb_ver"], keys)
+        s["cb_view"] = view = (s["cb_ver"], _sorted(keys, by_key, rule_typed))
     keys = [k for k in view[1] if k in by_key]
-    rule_typed = {"kind": "column_rule", "args": {**rule_now["args"], "values": typed}}
+    picked = _picked()
     lines, sources = [], Counter()
     for key in keys:
         r = by_key[key]
         value, source = pr.column_value(rule_typed, r)
         short = "typed" if source.startswith("typed") else (source.split(":")[0] if source.startswith("fill") else
                                                            ("every other" if value else ""))
-        line = {name: _text(r.get(col)) for name, col in SHOWN_COLUMNS}
+        line = {"Pick": key in picked}
+        line.update({name: _text(r.get(col)) for name, col in SHOWN_COLUMNS})
         line["Value"] = (pr.to_number(value) if value else None) if _number() else value
         line["From"] = short
         lines.append(line)
@@ -613,34 +797,58 @@ def _table(signals: list[dict[str, Any]], rule_now: dict[str, Any]) -> None:
                                                             ("default" if value else "blank"))] += 1
     st.caption(f"{len(by_key):,} signals · {sources['typed']:,} typed by hand · {sources['fill']:,} from fill rules · "
                f"{sources['default']:,} from “every other signal” · {sources['blank']:,} blank"
-               + (f" · showing {len(keys):,}" if len(keys) != len(by_key) else ""))
+               + (f" · showing {len(keys):,}" if len(keys) != len(by_key) else "")
+               + (f" · {len(picked):,} picked" if picked else ""))
+    filtered = bool(str(s.get("cb_find") or "").strip()) or any(_text(s.get(f"cb_q{u}_text")) for u in s.get("cb_filters") or [])
     if not keys:
-        st.info(EMPTY_VIEW.get(s.get("cb_show") or "All", EMPTY_VIEW["All"]) if not str(s.get("cb_find") or "").strip()
-                else "No signal matches this search with this Show filter. Clear the search or pick Show: All.")
-    frame = pd.DataFrame(lines, columns=["Tag", "Value", "From"] + [n for n, _ in SHOWN_COLUMNS[1:]])
+        st.info(EMPTY_VIEW.get(s.get("cb_show") or "All", EMPTY_VIEW["All"]) if not filtered
+                else "No signal matches these filters with this Show filter. Clear the filters or pick Show: All.")
+    frame = pd.DataFrame(lines, columns=["Pick", "Tag", "Value", "From"] + [n for n, _ in SHOWN_COLUMNS[1:]])
+    frame["Pick"] = frame["Pick"].astype(bool)
     title = (_column_name() or "Value") + (f" ({s['cb_unit']})" if s.get("cb_unit") else "")    # the column's own name
     if _number():
         frame["Value"] = pd.to_numeric(frame["Value"], errors="coerce")
-        value_col = st.column_config.NumberColumn(title, format="%g", help=f"Type each signal's {title} here.")
+        value_col = st.column_config.NumberColumn(title, format="%g", help=f"Click a cell to type that signal's own {title}.")
     else:
-        value_col = st.column_config.TextColumn(title, max_chars=pr.LIMITS["value"], help=f"Type each signal's {title} here.")
+        value_col = st.column_config.TextColumn(title, max_chars=pr.LIMITS["value"],
+                                                help=f"Click a cell to type that signal's own {title}.")
+    st.caption(f"✍️ Click a cell under **{md_escape(title)}** to type one signal's own value: every signal can have a "
+               "different value. Tick **Pick** to choose signals, then give only those one value below.")
     st.data_editor(frame, key=_editor_key(), hide_index=True, width="stretch", height=min(430, 38 + 35 * max(len(lines), 1)),
-                   num_rows="fixed", disabled=[n for n, _ in SHOWN_COLUMNS] + ["From"],
-                   column_config={"Value": value_col, "From": st.column_config.TextColumn("From", width="small",
+                   num_rows="fixed", disabled=[n for n, _ in SHOWN_COLUMNS] + ["From"], on_change=_keep_edits,
+                   column_config={"Pick": st.column_config.CheckboxColumn("Pick", width="small",
+                                                                          help="Tick to choose this signal for “Give The "
+                                                                               "Picked This Value” below."),
+                                  "Value": value_col, "From": st.column_config.TextColumn("From", width="small",
                                                                                           help="typed = typed by hand; fill N = fill rule N; every other = the value for every other signal")})
-    a, b, c = st.columns([2, 1.6, 1.6], vertical_alignment="bottom")
-    a.text_input("Value For All Shown Signals", key="cb_set_value", max_chars=pr.LIMITS["value"], autocomplete="off",
-                 placeholder="Find signals above, then give them one value")
-    b.button(f"Give The {len(keys):,} Shown This Value", key="cb_set_shown", on_click=_set_shown, args=(False,),
-             disabled=not keys)
-    c.button("Take Away Their Typed Values", key="cb_clear_shown", on_click=_set_shown, args=(True,),
-             disabled=not keys or not any(k in typed for k in keys))
+    with st.container(horizontal=True, gap="small", key="cb_pick_bar"):
+        st.button(f"Pick All {len(keys):,} Shown", key="cb_pick_all", on_click=_pick_shown, args=(True,), disabled=not keys)
+        st.button("Unpick All", key="cb_unpick_all", on_click=_unpick_all, disabled=not picked)
+    if s.get("cb_apply_to") not in APPLY:
+        s["cb_apply_to"] = "shown"
+    labels = {"picked": f"The {len(picked):,} Picked", "shown": f"All {len(keys):,} Shown"}
+    a, b, c, d = st.columns([1.7, 1.9, 1.1, 1.5], vertical_alignment="bottom")
+    autofill.offer("cb_set_value", _used_values(signals))
+    a.text_input("Value", key="cb_set_value", max_chars=pr.LIMITS["value"], autocomplete="off",
+                 placeholder="One value for many signals")
+    with b:
+        st.segmented_control("Give It To", list(APPLY), key="cb_apply_to", format_func=labels.get,
+                             help="Picked = only the signals ticked in the table · Shown = every signal the filters show")
+    target = s.get("cb_apply_to") or "shown"
+    count = len(picked) if target == "picked" else len(keys)
+    c.button("Give This Value", key="cb_set_shown", type="primary", on_click=_set_shown, args=(False,), disabled=not count)
+    d.button("Take Away Typed Values", key="cb_clear_shown", on_click=_set_shown, args=(True,),
+             disabled=not count or not any(k in typed for k in (picked if target == "picked" else keys)))
 
 
 def _check_values(p: str, kind: str, signals: list[dict[str, Any]], rule_now: dict[str, Any]) -> None:
     s = st.session_state
     needs = pr.CHECKS[kind][1]
     unit = f" ({s['cb_unit']})" if _number() and s.get("cb_unit") else ""
+    if needs in ("one", "two"):
+        used = _used_values(signals)
+        autofill.offer(f"{p}_v", used)
+        autofill.offer(f"{p}_v2", used)
     if needs == "one":
         st.text_input("Number Of Characters" if kind == "max_length" else f"Value{unit}", key=f"{p}_v", autocomplete="off",
                       max_chars=pr.LIMITS["value"])
@@ -737,10 +945,13 @@ def _wording(signals: list[dict[str, Any]]) -> None:
                 st.caption(f"Purpose: {args['note']}")
         if editing:
             st.caption("Once verified and activated, this replaces the active version of the column.")
+        if not str(s.get("rule_author") or "").strip():
+            st.caption("⚠ Write your name in Your Name at the top of Propose Rules first: every proposal needs an author.")
         with st.container(horizontal=True, gap="small"):
             st.button("Propose This Change" if editing else "Propose This Column", key="cb_propose", type="primary",
                       on_click=_propose, disabled=bool(errors))
             st.button("Start Again", key="cb_clear", on_click=_clear, help="Empty the form.")
+        state.show_flash(BUTTON_WHERE)
 
 
 def _ai(signals: list[dict[str, Any]]) -> None:

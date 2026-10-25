@@ -42,6 +42,7 @@ ALLOCATION_COLUMNS: tuple[str, ...] = tuple(sorted(set(MATCH_COLUMNS) | set(CHEC
 KINDS = ("project_column", "expect_hardware", "require_filled", "column_rule")
 COLUMN_TYPES = ("text", "number")
 HOWS = {"contains": "contains", "is": "is exactly", "starts": "starts with", "all": "(every signal)"}
+TAGS = "tags"                        # a scope that names its signals one by one: {"how": "tags", "tags": [...]}
 # check key: (label in the form, how many values it needs, the column types it suits)
 CHECKS: dict[str, tuple[str, str, tuple[str, ...]]] = {
     "max": ("At most (maximum)", "one", ("number",)),
@@ -57,7 +58,7 @@ CHECKS: dict[str, tuple[str, str, tuple[str, ...]]] = {
 }
 SEVERITIES = ("error", "warning")
 LIMITS = {"column": 30, "unit": 12, "value": 60, "values": 20000, "fills": 30, "checks": 20, "list": 50, "note": 300,
-          "tag": 80}
+          "tag": 80, "scope_tags": 2000}
 EVERYTHING = "*"                     # match text that means 'every signal'
 _SIGNAL_STATUSES = (STATUS_FIELD, STATUS_ALARM)   # real signals; wired spares and empty slots carry no field data
 
@@ -208,6 +209,8 @@ def in_scope(scope: Any, row: dict[str, Any]) -> bool:
     """True if the row is one of the signals a fill rule or a check is about (no scope = every signal)."""
     if not isinstance(scope, dict) or scope.get("how", "all") == "all":
         return True
+    if scope.get("how") == TAGS:
+        return tag_key(row.get("Tag Name")) in {tag_key(t) for t in scope.get("tags") or []}
     text = str(scope.get("text") or "").strip().casefold()
     value = row.get(scope.get("column"))
     if not text or _blank(value):
@@ -224,6 +227,10 @@ def in_scope(scope: Any, row: dict[str, Any]) -> bool:
 def scope_words(scope: Any) -> str:
     if not isinstance(scope, dict) or scope.get("how", "all") == "all":
         return "every signal"
+    if scope.get("how") == TAGS:
+        tags = [str(t) for t in scope.get("tags") or []]
+        return f"the signal {tags[0]}" if len(tags) == 1 else \
+            f"these {len(tags)} signals: " + ", ".join(tags[:5]) + (" …" if len(tags) > 5 else "")
     return f"signals whose {scope.get('column')} {HOWS.get(scope.get('how'), 'contains')} '{scope.get('text')}'"
 
 
@@ -421,6 +428,14 @@ def _clean_text(value: Any, limit: int, name: str, errors: list[str], blank_ok: 
 def _clean_scope(scope: Any, name: str, errors: list[str]) -> dict[str, str]:
     if not isinstance(scope, dict) or scope.get("how", "all") in ("all", None, ""):
         return {"how": "all"}
+    if scope.get("how") == TAGS:
+        raw = scope.get("tags") if isinstance(scope.get("tags"), (list, tuple)) else []
+        tags = list(dict.fromkeys(" ".join(str(t).split())[:LIMITS["tag"]] for t in raw if str(t or "").strip()))
+        if not tags:
+            errors.append(f"{name}: pick at least one signal.")
+        if len(tags) > LIMITS["scope_tags"]:
+            errors.append(f"{name}: at most {LIMITS['scope_tags']:,} signals can be picked one by one.")
+        return {"how": TAGS, "tags": tags[:LIMITS["scope_tags"]]}
     how = scope.get("how") if scope.get("how") in HOWS else "contains"
     column = next((c for c in MATCH_COLUMNS if c.casefold() == str(scope.get("column") or "").strip().casefold()), None)
     if column is None:

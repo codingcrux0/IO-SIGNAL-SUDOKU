@@ -26,7 +26,7 @@ import streamlit as st
 
 from io_sudoku.core import helpdesk
 from io_sudoku.core.suggestion import make_suggestion
-from io_sudoku.ui import aistatus, faqview, state, ui_logic
+from io_sudoku.ui import aistatus, autofill, faqview, state, ui_logic
 from io_sudoku.ui.views._common import md_escape
 
 WIDTH = 420                 # px, the panel on a wide screen (it covers the whole width on a phone)
@@ -393,6 +393,7 @@ def _body() -> None:
         with st.expander("Your Suggestion For This Question", expanded=True):
             st.text_area("Final Wording", key="assistant_final", max_chars=1000, height=90,
                          help="What you send for verification. Use the Helpdesk's last answer, or write your own.")
+            autofill.offer("assistant_by", autofill.names())
             st.text_input("Your Name", key="assistant_by", autocomplete="off")
             with st.container(horizontal=True, gap="small"):
                 st.button("Use Last Answer", key="assistant_use_reply", on_click=_use_reply)
@@ -401,6 +402,7 @@ def _body() -> None:
         with st.expander("Turn My Request Into A Rule Proposal"):
             st.caption("Describe the rule in the chat first. The Helpdesk fills in the same form as the Rules page; "
                        "the proposal is checked like any other and waits in the Review Queue until it is verified.")
+            autofill.offer("assistant_by", autofill.names())
             st.text_input("Your Name", key="assistant_by", autocomplete="off")
             st.button("Draft A Rule Proposal", key="assistant_draft_rule", on_click=_draft_rule, disabled=not _key())
     st.caption("\U0001F512 Advice only. The Helpdesk can read the details shown above, but it cannot change your file, "

@@ -17,7 +17,7 @@ from io_sudoku.core.topology_infer import infer_cabinets
 from io_sudoku.core.tq import TQLog
 from io_sudoku.core.tqlife import group_by_owner, tqs_as_email_text
 from io_sudoku.core.validate import validate
-from io_sudoku.ui import editing, state, theme, ui_logic
+from io_sudoku.ui import autofill, editing, state, theme, ui_logic
 from io_sudoku.ui.views import assistant, reviewed
 from io_sudoku.ui.nav import link
 from io_sudoku.ui.views._common import (allocate_button, ask_first, heading, md_escape, pager, result_or_empty,
@@ -214,6 +214,7 @@ def _fix_panel(result, kind: str, ref: str, tq_key: str, text: str = "") -> None
                          placeholder="What should be done? The next person who opens this question will see it.",
                          help="Saved with the project (it is in the workspace download), so whoever opens this "
                               "question next sees it. A note changes nothing in the allocation.")
+            autofill.offer("note_by", autofill.names())
             st.text_input("Your Name", key="note_by", autocomplete="off", placeholder="Who wrote this?…")
             with st.container(horizontal=True, gap="small"):
                 st.button("Save Note", key=f"note_save_{h}", on_click=_save_note, args=(tq_key, h))
@@ -293,6 +294,7 @@ def _all_questions(tqs, counts: dict[str, int]) -> None:
     heading("All Questions", "Every question the tool raised, errors first. Red = error (must be answered), amber = "
                              "warning (please confirm), blue = info (no action). The search is not case-sensitive. "
                              "Press a colour to show only that kind; press it again to show everything.")
+    autofill.offer("tq_search", autofill.tags() + autofill.column("Field Cable No") + sorted({t.tq_id for t in tqs}))
     text = st.text_input("Search The Questions", key="tq_search", autocomplete="off", label_visibility="collapsed",
                          placeholder="\U0001F50E Search the questions: a tag, a cable or any word…")
     chosen = [x for x in (s.get("tq_sev") or []) if x in counts]
@@ -347,6 +349,7 @@ def _answers(result) -> None:
             st.selectbox("Suggested Answers", list(options), key="answer_pick")
         else:
             st.caption("No suggested answers are available for the current questions. You can still give an answer below.")
+        autofill.offer("answer_by", autofill.names())
         st.text_input("Answered By", key="answer_by", autocomplete="off", placeholder="Your name…")
         st.caption("Or give your own answer:")
         tags = sorted({sg.tag for sg in signals.values() if sg.tag})

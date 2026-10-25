@@ -8,10 +8,12 @@ its rules read the edited file exactly as they read an upload.
 """
 from __future__ import annotations
 
+import json
+
 import pandas as pd
 import streamlit as st
 
-from io_sudoku.ui import editing, state, ui_logic
+from io_sudoku.ui import autofill, editing, state, ui_logic
 from io_sudoku.ui.nav import link
 from io_sudoku.ui.views import _filerev
 from io_sudoku.ui.views._common import allocate_button, ask_first, heading, md_escape
@@ -19,6 +21,27 @@ from io_sudoku.ui.views._common import allocate_button, ask_first, heading, md_e
 
 def _sheet(sheets: list[editing.EditSheet], name: str | None) -> editing.EditSheet:
     return next((x for x in sheets if x.name == name), sheets[0])
+
+
+def _search_values(sheet: editing.EditSheet) -> list[str]:
+    """What the search box can complete: the sheet's cells exactly as written (tags and cables first)."""
+    s = st.session_state
+    first: list[int] = []
+    try:
+        mapping = ui_logic.edit_index(s["mdb_bytes"], json.dumps(s["column_overrides"], sort_keys=True),
+                                      ui_logic.pack_json(s["pack"])).mapping
+        first = [m.index for f in ("tag", "cable_no") if (m := mapping.get(f)) is not None and m.index is not None]
+    except Exception:  # noqa: BLE001 - without the mapping every column is offered in its order
+        first = []
+    order = first + [i for i in range(len(sheet.headers)) if i not in first]
+    out: list[str] = []
+    for col in order:
+        for _, row in sheet.rows:
+            if col < len(row) and row[col] not in (None, ""):
+                out.append(str(row[col]).strip())
+        if len(out) > 6000:
+            break
+    return out
 
 
 def render() -> None:
@@ -116,6 +139,7 @@ def _find(sheets: list[editing.EditSheet]) -> None:
     if s.get("edit_cols"):                       # columns picked on another sheet are not offered here
         s["edit_cols"] = [h for h in s["edit_cols"] if h in sheet.headers]
     c1, c2 = st.columns([3, 1])
+    autofill.offer("edit_search", _search_values(sheet))
     needle = c1.text_input("Search (case-sensitive)", key="edit_search", autocomplete="off",
                            placeholder="A tag, cable or any text, exactly as written")
     row_no = c2.number_input("Or Go To Row", min_value=0, step=1, key="edit_row", help="The row number as in Excel (0 = off).")

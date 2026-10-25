@@ -13,7 +13,7 @@ from html import escape
 import streamlit as st
 
 from io_sudoku.core import cellcheck as cc, helpcontext
-from io_sudoku.ui import state, ui_logic
+from io_sudoku.ui import autofill, state, ui_logic
 from io_sudoku.ui.nav import link_to
 from io_sudoku.ui.views import assistant
 from io_sudoku.ui.views._common import heading, md_escape, result_or_empty
@@ -95,6 +95,7 @@ def _picker(result, key: str) -> None:
         s["rc_cab"] = s.get("selected_cabinet") if s.get("selected_cabinet") in names else ALL_CABINETS
     c1, c2 = st.columns([2, 3])
     cab = c1.selectbox("Cabinet", options, key="rc_cab")
+    autofill.offer("rc_find", autofill.tags() + autofill.column("Field Cable No") + autofill.column("CHARM Type"))
     needle = c2.text_input("Find (case-sensitive)", key="rc_find", autocomplete="off",
                            placeholder="A tag, cable, CHARM type, or CIOC 1 BP 2 CH 3…").strip()
     lines = [x for x in _table(key, result.rows) if (cab == ALL_CABINETS or x["Cabinet"] == cab)

@@ -167,7 +167,7 @@ then Save This Revision or Discard - and Compare Revisions, View In Detail; Revi
 opened by its name with all its data; Revision History with Undo Last Revision and Delete; Revision Simulator, which
 makes a pretend client revision and estimates the rework saved) - Rules (Locked
 Rules, Project Choices (the customer-specific values in force: cabinet-alarm baseplate, spares, empty baseplates,
-segregation codes, naming), Propose A Rule with two tabs - Columns And Checks and Add A Signal - and, closed at the bottom, Engineering
+segregation codes, naming), Propose Rules with two tabs - Columns And Checks and Add A Signal - and, closed at the bottom, Engineering
 Settings (spare %, future space, end baseplates, add a cabinet, IO type names, segregation codes, instrument hardware,
 high-current words; they can move signals, so they go through the Review Queue like rules). Columns And Checks is one form for one column: a new project column (name, text or
 number, unit) or an allocation column, its values per signal (type them in a table, give all shown signals one value,

@@ -3,8 +3,9 @@
 Every Approve, Problem, Edit, answer, note and verified or rejected fix is remembered (core.reviewlog).  When a
 re-allocation or a new revision raises a question again on such an item - a new problem (another signal, a
 changed rule) or the same one coming back - the item is listed here.  Hover the (?) of a row for the small box
-with how often it was reviewed, approved, rejected and fixed; press ▸ for the exact history: every decision,
-who made it, in which revision, and the signal exactly as it was then next to how it is now.
+with how often it was reviewed, approved, rejected and fixed, and the cells edited before each decision; press ▸
+for the exact history: every decision, who made it, in which revision, every cell edited before it (before ->
+after), and the signal exactly as it was then next to how it is now.
 Read-only: nothing here changes a sign-off, the file or the allocation (Edit opens the editor as usual).
 """
 from __future__ import annotations
@@ -12,7 +13,7 @@ from __future__ import annotations
 import streamlit as st
 
 from io_sudoku.core import helpcontext, reviewlog
-from io_sudoku.ui import state, ui_logic
+from io_sudoku.ui import autofill, state, ui_logic
 from io_sudoku.ui.views import assistant
 from io_sudoku.ui.views._common import heading, md_escape, pager
 
@@ -97,7 +98,18 @@ def _history(result, key: str, ref: str, events: list[reviewlog.ReviewEvent], op
                    "By": e.by or "-", "Detail": e.detail or "-", "Where It Was": e.where or "-",
                    "Question Text": e.question or "-"} for e in reversed(events)],
                  hide_index=True, width="stretch", height=min(330, 38 + 35 * len(events)))
-    labels = [f"{e.time} · {e.tq_id} · {e.label}" for e in events]
+    changed = reviewlog.changes_in(events)
+    if changed:
+        st.markdown(f"**Cells changed before each decision** ({len(changed):,})",
+                    help="Every cell of this signal that was edited on the Edit File page before a decision was made "
+                         "on it: the value before the edit, the value after, and the decision it came before.")
+        st.dataframe([{"Decision": f"{e.time} · {e.tq_id} · {e.label}", "By": e.by or "-", "Row": c["Row"],
+                       "Column": c["Column"], "Before": c["Before"] or "(empty)", "After": c["After"] or "(empty)",
+                       "Edited At": c["When"] or "-", "Sheet": c["Sheet"]} for e, c in reversed(changed)],
+                     hide_index=True, width="stretch", height=min(330, 38 + 35 * len(changed)))
+    else:
+        st.caption("No cell of this signal was edited before these decisions.")
+    labels =[f"{e.time} · {e.tq_id} · {e.label}" for e in events]
     pick = st.selectbox("See The Signal Exactly As It Was At", range(len(events)), index=len(events) - 1,
                         format_func=lambda i: labels[i], key=f"{h}_at",
                         help="The signal's own values at the moment of that decision, next to how it is now.")
@@ -127,6 +139,7 @@ def _everything(result, log: list[reviewlog.ReviewEvent]) -> None:
                                           "It is kept with the project: the workspace download saves it, so it "
                                           "comes back when the project is continued later.")
     items = reviewlog.by_item(log)
+    autofill.offer("rb_search", [e.ref for e in reversed(log) if e.ref] + [e.tq_id for e in log])
     text = st.text_input("Search The Reviewed Items", key="rb_search", autocomplete="off", label_visibility="collapsed",
                          placeholder="\U0001F50E Search a tag, a cable or a question…")
     needle = (text or "").strip().casefold()

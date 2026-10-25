@@ -27,6 +27,15 @@ Moving around and fixing things:
   and again as one bar at the top of every page. Every set of tabs and every one-choice button row is drawn as a
   joined "gooey" bar: the chosen one splits away and turns blue. All of it moves in the browser (no extra re-run),
   and **Lite Mode** or your computer's "reduce motion" setting switches the movement off.
+- **Type-ahead in every box**: while you type in a search or text box (tags, cables, names, values, units ...),
+  the rest of the best match appears in faint grey right after your letters; press **Tab** or **→** to take it.
+  A short list of other matches opens underneath (click one, or ↑ ↓ and Enter). Dropdowns get the same faint
+  completion from their own list. Nothing is filled in until you take it.
+- **Nothing you type is lost**: half-typed forms stay when you open another page or tab, and your work (the file,
+  answers, sign-offs, proposals waiting in the Review Queue, the review memory and the half-typed forms) is saved
+  on this computer after every change. Open the app again after closing the browser or the laptop and it says
+  **Welcome back** with everything brought back (or press **Start Fresh Instead**). The saved revisions list and
+  the Revision Library stay in the session only: download the workspace to keep those.
 - **Search bar** (top of every page): type a few letters to jump to any page or section of the app; the matching
   runs in your browser, and Enter on a misspelt word takes you to the closest match. (Tags and cables are searched
   where they live: **Why Is It Here?**, the TQ Board and the Files viewer.)
@@ -53,8 +62,10 @@ Moving around and fixing things:
 - **TQ Board → Reviewed Before**: every Approve, Problem, Edit, answer, note and verified or rejected fix is
   remembered (who, when, in which revision, and where the signal sat). When a later allocation or a new revision
   raises a question again on a reviewed signal, cable or cabinet, it is listed here as **NEW PROBLEM** or **CAME
-  BACK**. Hover the **i** for how often it was reviewed, approved, rejected and fixed; **▸** shows the whole history
-  and the signal *then* next to *now*. The memory is saved in the workspace download. It never changes a sign-off.
+  BACK**. Hover the **i** for how often it was reviewed, approved, rejected and fixed, and the cells edited before
+  each decision; **▸** shows the whole history, every cell edited before each decision (before → after), and the
+  signal *then* next to *now*. An Approve made after you edited the signal's row on Edit File keeps exactly those
+  edits with it. The memory is saved in the workspace download. It never changes a sign-off.
 - **Helpdesk** (the round **💬 Help** button at the bottom right of every page): a customer-support chat that slides
   in on the right; the page shrinks to make room and goes back when you close it. It explains pages, questions and
   rules, suggests how to fix a problem, and words suggestions and rules (it can also turn a request into a rule
@@ -122,21 +133,32 @@ Moving around and fixing things:
   allocation and impact report, rename or delete it.
 - **Rules → Add A Signal**: a signal that arrives later. Give its basic facts (tag, IO type, room, cable, pair, size,
   segregation, instrument, signal type, service), each a dropdown of the values your file already uses; picking a
-  cable fills in its room, size and next free pair. The row is added to your file (saved as a file revision) and
-  opens on Edit File to fill in every other column.
+  cable fills in its room, size and next free pair. **Propose This Signal** sends it to the **Review Queue**; only
+  **Verify** there adds the row to your file (saved as a file revision), and **Open It On Edit File** shows it to
+  fill in every other column. Every proposal needs **Your Name** (top of Propose Rules); if it is missing, the
+  message says so right under the button you pressed.
 - **Rules → Locked Rules and Project Choices**: the locked rules are hardware facts and the tool's own principles
   (384 slots, the CHARM_No formula, A and B never share a CIOC, SE6103 spare slots, the hardware table, determinism).
   The VIT allocation guide calls the cabinet-alarm baseplate, spare percentages, unconnected baseplates, segregation
   codes and naming details customer specific, so they are listed as **Project Choices** with the values in force.
-- **Rules → Engineering Settings** (closed at the bottom of Propose A Rule): the cabinet-alarm baseplate (any CIOC and
+- **Rules → Engineering Settings** (closed at the bottom of Propose Rules): the cabinet-alarm baseplate (any CIOC and
   baseplate, except the empty ones at the end of CIOC 4), spare %, future space, end baseplates, an extra cabinet, IO type names, segregation codes, instrument hardware, high-current words. They can move signals,
   so they go through the Review Queue like rules.
+- **Rules → Notes** (above Columns And Checks): columns of your file that hold a measurement or a limit (a
+  temperature, a voltage, a current, a range, an alarm limit ...) get a note asking for the value to compare them
+  against. For each: the limit (at most, at least, between, equal), which signals (every signal with a value, only
+  some by filter, or signals you pick one by one), whether a blank value is a problem, and Error or Warning; then
+  **Propose This Limit** (to the Review Queue), **Open In The Columns Form**, or **Leave It Blank (No Limit)**. The
+  tool reads the columns itself; with an AI key the AI also reads them in the background (it sees only the column
+  names and a few example values). A note is never an error or a warning.
 - **Rules → Columns And Checks**, one form for one column (the value column is named after your column, in the form
   and in **Where It Applies**):
   1. **Which column**: a new project column (name, text or number, unit such as V), an active project column to
      change, or a column of the allocation itself (checks only).
-  2. **Values**: type a value per signal in the table (find signals, then give all the shown ones one value at
-     once), paste or upload tags and values, or, second, fill rules ("signals whose IO Type contains AI get 24") and
+  2. **Values**: click a cell to type one signal's own value, or tick **Pick** on some signals and give only the
+     picked ones a value (or all the shown ones), then pick others for another value. Narrow the table with
+     **Find**, any number of **filters** (column, how, value; all or any of them) and a **sort** order. Or paste or
+     upload tags and values, or, second, fill rules ("signals whose IO Type contains AI get 24") and
      one value for every other signal (or blank). A typed value wins, then the last fill rule, then that value.
   3. **Checks**: at most, at least, between, not blank, equal, one of, no duplicates ..., each on every signal or
      only some, each an **Error** (`PROJECT-CHECK-ERROR`, blocks the result) or a **Warning** (`PROJECT-RULE-BROKEN`,

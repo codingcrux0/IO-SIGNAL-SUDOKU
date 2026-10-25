@@ -695,3 +695,11 @@ def suggest(data: bytes, file_name: str = "MDB.xlsx", cfg: Config | None = None,
 def _suggested_name(file_name: str) -> str:
     stem, dot, ext = (file_name or "MDB.xlsx").rpartition(".")
     return f"{stem}_suggested_fix.{ext}" if dot else f"{file_name}_suggested_fix"
+
+
+def unused_columns(data: bytes, column_overrides: dict[str, str] | None = None) -> list[tuple[str, int, dict[str, str]]]:
+    """(header, filled, {tag key: value}) of every column of the file the allocation does not read.  Never raises."""
+    try:
+        return _unused(_sheets(data, load_aliases(), dict(column_overrides or {})))
+    except Exception:  # noqa: BLE001 - an unreadable file simply has no such columns
+        return []

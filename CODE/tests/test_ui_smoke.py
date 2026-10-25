@@ -266,8 +266,9 @@ def test_drawings_are_shown_in_frames():
 
 
 def _drawing_frames(at: AppTest) -> list:
-    """The page's frames, without the invisible sidebar frames (the in-sentence links and the sidebar dot)."""
-    return [f for f in at.get("iframe") if "__iosgNav" not in str(f.proto) and "__iosgBounce" not in str(f.proto)]
+    """The page's frames, without the invisible sidebar frames (links, sidebar dot, type-ahead, autosave)."""
+    hidden = ("__iosgNav", "__iosgBounce", "__iosgFill", "iosg_draft_id")
+    return [f for f in at.get("iframe") if not any(h in str(f.proto) for h in hidden)]
 
 
 def test_cabinet_layout_keeps_map_drawings_trace_and_pack():

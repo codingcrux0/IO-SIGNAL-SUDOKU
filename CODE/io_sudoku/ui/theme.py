@@ -87,7 +87,7 @@ iframe[data-testid=stIFrame]{background:#fff;border-radius:8px;color-scheme:ligh
 [data-testid=stSidebar] iframe[data-testid=stIFrame]{opacity:0;pointer-events:none}
 [data-testid=stSidebar] [data-testid=stElementContainer]:has(iframe[data-testid=stIFrame]){position:absolute;width:1px;
 height:1px;overflow:hidden}
-.st-key-iosg_nav{display:none!important}
+.st-key-iosg_nav,.st-key-iosg_drafts{display:none!important}
 [data-testid=stTooltipContent]{font-size:.78rem;line-height:1.45;max-width:440px}
 [data-testid=stTooltipContent] p{margin:0 0 .3rem}
 button[aria-label=Help] svg{display:none}

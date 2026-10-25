@@ -229,7 +229,7 @@ def test_add_a_signal_logic_uses_the_files_own_values_and_spelling():
     assert written["Pair Number"] == f"Pair {cable.next_pair()}" and written["TagNumber"] == "320FT29999"
 
 
-def test_add_a_signal_writes_the_row_and_opens_it_on_edit_file():
+def test_add_a_signal_goes_to_the_review_queue_and_verify_writes_the_row():
     at = _sample_app("Rules")
     at.session_state["rule_group"] = "Add A Signal"
     at.run()
@@ -239,12 +239,37 @@ def test_add_a_signal_writes_the_row_and_opens_it_on_edit_file():
     at.selectbox(key="ns_io_type").set_value("AIR").run()
     at.selectbox(key="ns_cable_no").set_value("320-CE-0001").run()
     assert at.session_state["ns_tech_room"] == "PIB-30" and at.session_state["ns_pair_no"] >= 1   # filled from the cable
+    before = at.session_state["mdb_sha"]
+    at.button(key="ns_add").click().run()                                 # no name yet: refused, said under the button
+    assert not at.session_state["signal_requests"] and any("Your Name" in e.value for e in at.error)
+    at.text_input(key="rule_author").set_value("Asha").run()
     at.button(key="ns_add").click().run()
-    assert at.session_state["view"] == "Edit File" and at.session_state["edit_target"].row is not None
-    assert at.session_state["file_revs"][-1].kind == "signal" and not at.exception
+    reqs = at.session_state["signal_requests"]
+    assert len(reqs) == 1 and reqs[0]["status"] == "pending" and at.session_state["mdb_sha"] == before   # nothing written yet
+    assert at.session_state["ns_tag"] is None                                                         # the form is empty again
+    at.button(key=f"nsverify_{reqs[0]['id']}").click().run()
+    assert at.session_state["signal_requests"][0]["status"] == "approved" and not at.exception
+    assert at.session_state["file_revs"][-1].kind == "signal" and at.session_state["mdb_sha"] != before
     ing = read_mdb(at.session_state["mdb_bytes"], TQLog())
     sig = next(x for x in ing.signals if x.tag == "320-FT   -29999")
     assert sig.io_type == "AIR" and sig.cable_no == "320-CE-0001" and sig.tech_room == "PIB-30"
+    at.button(key=f"ns_open_{reqs[0]['id']}").click().run()
+    assert at.session_state["view"] == "Edit File" and at.session_state["edit_target"].row is not None
+
+
+def test_a_rejected_signal_is_never_written():
+    at = _sample_app("Rules")
+    at.session_state["rule_group"] = "Add A Signal"
+    at.session_state["rule_author"] = "Asha"
+    at.run()
+    at.text_input(key="ns_tag").set_value("320-FT-29998").run()
+    at.selectbox(key="ns_io_type").set_value("DIR").run()
+    at.selectbox(key="ns_tech_room").set_value("PIB-30").run()
+    at.button(key="ns_add").click().run()
+    req = at.session_state["signal_requests"][0]
+    before = at.session_state["mdb_sha"]
+    at.button(key=f"nsreject_{req['id']}").click().run()
+    assert at.session_state["signal_requests"][0]["status"] == "rejected" and at.session_state["mdb_sha"] == before
 
 
 # ------------------------------------------------------------------ 5. the Show filter

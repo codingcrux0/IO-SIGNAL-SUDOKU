@@ -17,7 +17,7 @@ from io_sudoku.core.rulepack import pack_hash
 from io_sudoku.core.tqlife import diff_tqs
 from io_sudoku.core.workspace import import_workspace
 from io_sudoku.core.overrides import overrides_to_json
-from io_sudoku.ui import history, impact, revlibrary, state, theme, ui_logic
+from io_sudoku.ui import autofill, history, impact, revlibrary, state, theme, ui_logic
 from io_sudoku.ui.nav import link, link_to
 from io_sudoku.ui.views import assistant
 from io_sudoku.ui.views._common import ask_first, file_card, heading, md_escape, stale_banner
@@ -266,6 +266,7 @@ def _detail(entry: revlibrary.Entry, prefix: str) -> None:
     with rows_tab:
         rows = entry.rows()
         left, right = st.columns([3, 1], vertical_alignment="bottom")
+        autofill.offer(f"{prefix}_rows_q", [r.get("Tag Name") for r in rows] + [r.get("Field Cable No") for r in rows])
         needle = left.text_input("Search The Allocation", key=f"{prefix}_rows_q", autocomplete="off",
                                  placeholder="\U0001F50E A tag, a cable, a cabinet…").strip().casefold()
         every = right.toggle("All Columns", key=f"{prefix}_allcols", help="Show every column of the allocation.")

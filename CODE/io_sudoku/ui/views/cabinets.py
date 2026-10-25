@@ -16,7 +16,7 @@ import streamlit as st
 from io_sudoku.core.elevation import cabinet_svg
 from io_sudoku.core import helpcontext
 from io_sudoku.core.trace import explain
-from io_sudoku.ui import state, theme, ui_logic
+from io_sudoku.ui import autofill, state, theme, ui_logic
 from io_sudoku.ui.views import assistant
 from io_sudoku.ui.views._common import ALL_DRAWINGS, cabinet_picker, download_button, main_ctx, result_or_empty
 
@@ -83,6 +83,7 @@ def _why_here(cabinet: str) -> None:
     if s.get("why_tag") not in options:              # a tag of another cabinet was picked before
         s["why_tag"] = options[0]
     pick = st.selectbox("Tag (any cabinet)" if every else "Tag", options, key="why_tag")
+    autofill.offer("why_cable", autofill.column("Field Cable No"))
     typed = st.text_input("Or Type A Cable Number (case-sensitive)", key="why_cable", autocomplete="off",
                           placeholder="For example 320-CE-0001…").strip()
     if typed:

@@ -5,7 +5,7 @@ import streamlit as st
 
 st.set_page_config(page_title="IO Signal Sudoku", page_icon="\U0001F9E9", layout="wide", initial_sidebar_state="expanded")
 
-from io_sudoku.ui import gooey, nav, search, state, theme                   # noqa: E402  (after set_page_config)
+from io_sudoku.ui import autofill, drafts, gooey, nav, search, state, theme  # noqa: E402  (after set_page_config)
 from io_sudoku.ui.errors import error_boundary                           # noqa: E402
 from io_sudoku.ui.views import (assistant, cabinets, downloads, edit, parts, preflight, revision,  # noqa: E402
                                 ruleradar, rules, solve, tq, upload)
@@ -17,6 +17,7 @@ VIEW_MODULES = {"Upload": upload, "Edit File": edit, "Preflight": preflight, "So
 
 def main() -> None:
     state.init_state()
+    autofill.begin()
     theme.inject(st.session_state["lite"])
     no_file = not st.session_state["mdb_bytes"]
     if no_file and st.session_state["view"] in state.NEEDS_FILE:      # e.g. reached by keyboard or by a search
@@ -43,6 +44,10 @@ def main() -> None:
             gooey.render_bounce()
         except Exception:  # noqa: BLE001 - only the dot stops moving
             pass
+        try:                                     # hidden: brings back unfinished work after the browser was closed
+            drafts.render_bridge()
+        except Exception:  # noqa: BLE001 - only the autosave stops; the page must never break
+            pass
     view = st.session_state["view"]
     st.markdown('<a class="iosg-skip" href="#iosg-main">Skip to main content</a><span id="iosg-main"></span>'
                 + ('' if view == "Upload" else '<h1 class="iosg-sr">IO Signal Sudoku</h1>'), unsafe_allow_html=True)
@@ -51,6 +56,7 @@ def main() -> None:
     with error_boundary("Search"):
         search.render()
     state.show_flash()
+    drafts.banner()
     with error_boundary(view):
         VIEW_MODULES[view].render()
     target = st.session_state.get("scroll_to")
@@ -63,6 +69,12 @@ def main() -> None:
         assistant.render()                       # the Help button, or the open chat panel on the right
     state.flush_flash()                          # a message for a section that was not drawn: a small toast
     state.sync_url()
+    try:
+        with st.sidebar:                         # the type-ahead lists of the boxes drawn in this run (invisible)
+            autofill.render()
+    except Exception:  # noqa: BLE001 - only the suggestions stop; the page must never break
+        pass
+    drafts.save()                                # unfinished work is saved after every change
 
 
 main()
