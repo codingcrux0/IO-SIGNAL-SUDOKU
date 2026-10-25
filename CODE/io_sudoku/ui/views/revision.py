@@ -201,7 +201,7 @@ def _preview_dialog() -> None:
     _detail(entry, "pv")
     st.divider()
     if s.get("rev_preview_error"):
-        st.error(s["rev_preview_error"])
+        state.alert("error", s["rev_preview_error"], once=True)
     st.text_input("Name For This Revision", key="rev_preview_name", max_chars=60, autocomplete="off",
                   help="The name it gets in the Revision Library. Click the name there later to see everything about it.")
     with st.container(horizontal=True, gap="small", vertical_alignment="center", key="pv_buttons"):

@@ -460,9 +460,9 @@ def _answer_check() -> None:
         st.button("OK", key="answer_verify_ok", on_click=_dismiss_check)
     else:
         lines = "\n".join(f"- **{md_escape(i)}** ({sev}): {md_escape(msg)}" for i, sev, msg in check["open"])
-        st.error(f"Not resolved: the answer for {check['tag']} did not clear everything. These questions are now on "
-                 f"the board for this tag:\n\n{lines}\n\nChange the answer above, or fix it with Edit under "
-                 f"{link('Sign Off The Warnings', 'TQ Board', 'Sign Off The Warnings')}.")
+        state.alert("error", f"Not resolved: the answer for {check['tag']} did not clear everything. These questions "
+                    f"are now on the board for this tag:\n\n{lines}\n\nChange the answer above, or fix it with Edit "
+                    f"under {link('Sign Off The Warnings', 'TQ Board', 'Sign Off The Warnings')}.", once=True)
         st.button("OK", key="answer_verify_ok", on_click=_dismiss_check)
 
 

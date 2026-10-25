@@ -87,7 +87,11 @@ iframe[data-testid=stIFrame]{background:#fff;border-radius:8px;color-scheme:ligh
 [data-testid=stSidebar] iframe[data-testid=stIFrame]{opacity:0;pointer-events:none}
 [data-testid=stSidebar] [data-testid=stElementContainer]:has(iframe[data-testid=stIFrame]){position:absolute;width:1px;
 height:1px;overflow:hidden}
-.st-key-iosg_nav,.st-key-iosg_drafts{display:none!important}
+.st-key-iosg_nav,.st-key-iosg_drafts,[class*="st-key-iosg_alertgo_"]{display:none!important}
+@keyframes iosg-glow-red{0%{box-shadow:0 0 0 0 rgba(248,81,73,.6)}70%{box-shadow:0 0 0 9px rgba(248,81,73,0)}100%{box-shadow:0 0 0 0 rgba(248,81,73,0)}}
+@keyframes iosg-glow-amber{0%{box-shadow:0 0 0 0 rgba(242,204,96,.6)}70%{box-shadow:0 0 0 9px rgba(242,204,96,0)}100%{box-shadow:0 0 0 0 rgba(242,204,96,0)}}
+.iosg-pulse{animation:iosg-glow-red 1.1s ease-out 2;border-radius:.5rem}
+[class*="st-key-iosg_alert_warning"] .iosg-pulse{animation-name:iosg-glow-amber}
 [data-testid=stTooltipContent]{font-size:.78rem;line-height:1.45;max-width:440px}
 [data-testid=stTooltipContent] p{margin:0 0 .3rem}
 button[aria-label=Help] svg{display:none}

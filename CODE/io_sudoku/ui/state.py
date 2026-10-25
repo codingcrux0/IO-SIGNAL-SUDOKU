@@ -673,12 +673,63 @@ def flash(kind: str, message: str, where: str = "") -> None:
 
 
 def show_flash(where: str = "") -> None:
-    """Draw the waiting message if it belongs here (call it right under a section heading)."""
+    """Draw the waiting message if it belongs here (call it right under a section heading).  An error or a
+    warning (something to fix, like an empty box) is brought into view and glows, wherever it is."""
     pending = st.session_state.get("flash")
     if pending and (pending[2] if len(pending) > 2 else "") == where:
         kind, message = pending[0], pending[1]
-        {"error": st.error, "warning": st.warning, "info": st.info}.get(kind, st.success)(message)
         st.session_state["flash"] = None
+        if kind in ALERT_KINDS:
+            alert(kind, message)
+        else:
+            {"info": st.info}.get(kind, st.success)(message)
+
+
+ALERT_KINDS = ("error", "warning")
+# Runs once in an invisible frame drawn next to the message: if the message is out of sight, the page glides
+# to it (a jump when the computer asks for less motion); then it glows twice.  setTimeout, not
+# requestAnimationFrame, so it also works in a background tab.  Nothing keeps running afterwards.
+_ALERT_SCRIPT = """<!DOCTYPE html><html><body><script>/*__iosgAlert @N@*/(function () {
+var f = window.frameElement, w = window.parent;
+if (!f || !w) return;
+var box = f.closest('[class*="st-key-iosg_alert_"]');
+function go(n) {
+  var a = box && box.querySelector('[data-testid="stAlert"]');
+  if (!a) { if (n < 30) setTimeout(function () { go(n + 1); }, 50); return; }
+  var r = a.getBoundingClientRect(), h = w.innerHeight || 800;
+  var calm = w.matchMedia && w.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (r.top < 70 || r.bottom > h - 16) a.scrollIntoView({behavior: calm ? "auto" : "smooth", block: "center"});
+  a.classList.remove("iosg-pulse"); void a.offsetWidth; a.classList.add("iosg-pulse");
+  setTimeout(function () { a.classList.remove("iosg-pulse"); }, 2600);
+}
+setTimeout(function () { go(0); }, 80);
+})();</script></body></html>"""
+
+
+def alert(kind: str, message: str, once: bool = False) -> None:
+    """An error or warning box that is brought into view and glows.  `once` = a box that stays on the page
+    across runs (like a failed solve): it is brought into view only in the run it first appears."""
+    s = st.session_state
+    shown = s.setdefault("_alerts_now", [])
+    shown.append(message)
+    show = {"error": st.error, "warning": st.warning}.get(kind, st.error)
+    if once and message in (s.get("_alerts_prev") or []):
+        show(message)
+        return
+    s["_alert_n"] = n = s.get("_alert_n", 0) + 1
+    with st.container(key=f"iosg_alert_{kind}_{n}"):
+        show(message)
+        try:
+            with st.container(key=f"iosg_alertgo_{n}"):      # hidden by the theme; only its script matters
+                st.iframe(_ALERT_SCRIPT.replace("@N@", str(n)), height=1)
+        except Exception:  # noqa: BLE001 - without the script the message is still shown
+            pass
+
+
+def end_alerts() -> None:
+    """End of a run: remember which lasting boxes were shown, so they are not brought into view again."""
+    s = st.session_state
+    s["_alerts_prev"] = s.pop("_alerts_now", [])
 
 
 def flush_flash() -> None:

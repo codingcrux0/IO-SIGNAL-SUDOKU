@@ -68,6 +68,7 @@ def main() -> None:
     with error_boundary("The Helpdesk"):
         assistant.render()                       # the Help button, or the open chat panel on the right
     state.flush_flash()                          # a message for a section that was not drawn: a small toast
+    state.end_alerts()                           # lasting error boxes are brought into view only once
     state.sync_url()
     try:
         with st.sidebar:                         # the type-ahead lists of the boxes drawn in this run (invisible)

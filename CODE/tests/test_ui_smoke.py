@@ -267,7 +267,7 @@ def test_drawings_are_shown_in_frames():
 
 def _drawing_frames(at: AppTest) -> list:
     """The page's frames, without the invisible sidebar frames (links, sidebar dot, type-ahead, autosave)."""
-    hidden = ("__iosgNav", "__iosgBounce", "__iosgFill", "iosg_draft_id")
+    hidden = ("__iosgNav", "__iosgBounce", "__iosgFill", "iosg_draft_id", "__iosgAlert")
     return [f for f in at.get("iframe") if not any(h in str(f.proto) for h in hidden)]
 
 

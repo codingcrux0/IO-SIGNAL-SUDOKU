@@ -42,7 +42,7 @@ def render() -> None:
     else:
         allocate_button("solve_main")
     if s["ui_error"]:
-        st.error(s["ui_error"])
+        state.alert("error", s["ui_error"], once=True)
     state.show_flash("Run Allocation")
     report = _selftest()
     st.markdown(f'<span class="iosg-badge {"ready" if report.ok else "blocked"}" role="status">'

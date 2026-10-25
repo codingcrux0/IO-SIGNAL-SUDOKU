@@ -60,7 +60,7 @@ def render() -> None:
                 icon=":material/auto_fix_high:")
     _filerev.picker("upload")
     if s["ui_error"]:
-        st.error(s["ui_error"])
+        state.alert("error", s["ui_error"], once=True)
     if s["edit_log"]:
         st.caption(f"Your file has {len(s['edit_log']):,} change(s) made on the {link('Edit File', 'Edit File', 'Your Changes')} page.")
     left, right = st.columns([3, 2], vertical_alignment="center")
