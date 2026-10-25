@@ -266,8 +266,8 @@ def test_drawings_are_shown_in_frames():
 
 
 def _drawing_frames(at: AppTest) -> list:
-    """The page's frames, without the invisible sidebar frame that makes the in-sentence links work."""
-    return [f for f in at.get("iframe") if "__iosgNav" not in str(f.proto)]
+    """The page's frames, without the invisible sidebar frames (the in-sentence links and the sidebar dot)."""
+    return [f for f in at.get("iframe") if "__iosgNav" not in str(f.proto) and "__iosgBounce" not in str(f.proto)]
 
 
 def test_cabinet_layout_keeps_map_drawings_trace_and_pack():
@@ -365,12 +365,14 @@ def test_edit_file_is_greyed_out_until_a_file_is_uploaded():
     at.session_state["view"] = "Edit File"
     at.run()
     assert at.session_state["view"] == "Upload" and not at.exception                  # no file: sent back
-    assert any("radiogroup" in m.value for m in at.markdown)                           # and greyed in the sidebar
+    greyed = [m.value for m in at.markdown if "cursor:not-allowed" in m.value]
+    assert any("stSidebar" in g for g in greyed)                                       # greyed in the sidebar
+    assert any("gooeynav_top" in g for g in greyed)                                    # and in the page bar
     next(b for b in at.button if b.label == "Try With Sample Data").click().run()
     at.session_state["view"] = "Edit File"
     at.run()
     assert at.session_state["view"] == "Edit File"
-    assert not any("radiogroup" in m.value for m in at.markdown)
+    assert not any("cursor:not-allowed" in m.value for m in at.markdown)
 
 
 def test_errors_and_warnings_share_one_signoff_box():

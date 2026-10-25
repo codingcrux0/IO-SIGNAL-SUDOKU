@@ -137,7 +137,8 @@ LITE_CSS = "*{animation:none!important;transition:none!important}.iosg-hero{back
 
 def inject(lite: bool = False) -> None:
     """Add the theme.  Lite mode removes all motion and the gradient (for weak machines)."""
-    st.markdown(f"<style>{CSS}{LITE_CSS if lite else ''}</style>", unsafe_allow_html=True)
+    from io_sudoku.ui import gooey
+    st.markdown(f"<style>{CSS}{gooey.CSS}{LITE_CSS if lite else ''}</style>", unsafe_allow_html=True)
 
 
 def badge(status: str) -> str:

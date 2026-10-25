@@ -5,7 +5,7 @@ import streamlit as st
 
 st.set_page_config(page_title="IO Signal Sudoku", page_icon="\U0001F9E9", layout="wide", initial_sidebar_state="expanded")
 
-from io_sudoku.ui import nav, search, state, theme                          # noqa: E402  (after set_page_config)
+from io_sudoku.ui import gooey, nav, search, state, theme                   # noqa: E402  (after set_page_config)
 from io_sudoku.ui.errors import error_boundary                           # noqa: E402
 from io_sudoku.ui.views import (assistant, cabinets, downloads, edit, parts, preflight, revision,  # noqa: E402
                                 ruleradar, rules, solve, tq, upload)
@@ -39,9 +39,15 @@ def main() -> None:
             nav.render_targets()
         except Exception:  # noqa: BLE001 - only the links stop working; the page must never break
             pass
+        try:
+            gooey.render_bounce()
+        except Exception:  # noqa: BLE001 - only the dot stops moving
+            pass
     view = st.session_state["view"]
     st.markdown('<a class="iosg-skip" href="#iosg-main">Skip to main content</a><span id="iosg-main"></span>'
                 + ('' if view == "Upload" else '<h1 class="iosg-sr">IO Signal Sudoku</h1>'), unsafe_allow_html=True)
+    with error_boundary("Page Bar"):
+        gooey.render_top(no_file)
     with error_boundary("Search"):
         search.render()
     state.show_flash()

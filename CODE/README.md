@@ -23,6 +23,10 @@ Open the address Streamlit prints, press **Try With Sample Data**, and explore t
 
 Moving around and fixing things:
 
+- **Page bar and sidebar**: the pages are listed in the (thinner) sidebar, where a small dot jumps to the open page,
+  and again as one bar at the top of every page. Every set of tabs and every one-choice button row is drawn as a
+  joined "gooey" bar: the chosen one splits away and turns blue. All of it moves in the browser (no extra re-run),
+  and **Lite Mode** or your computer's "reduce motion" setting switches the movement off.
 - **Search bar** (top of every page): type a few letters to jump to any page or section of the app; the matching
   runs in your browser, and Enter on a misspelt word takes you to the closest match. (Tags and cables are searched
   where they live: **Why Is It Here?**, the TQ Board and the Files viewer.)
