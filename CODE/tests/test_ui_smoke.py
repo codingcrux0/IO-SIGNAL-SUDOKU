@@ -262,7 +262,7 @@ def test_drawings_are_shown_in_frames():
     at.session_state["view"] = "Cabinet Layout"
     at.run()
     assert not at.exception, [e.value for e in at.exception]
-    assert len(_drawing_frames(at)) == 2
+    assert len(_drawing_frames(at)) == 3                                     # cables, front and rear
 
 
 def _drawing_frames(at: AppTest) -> list:
@@ -276,16 +276,22 @@ def test_cabinet_layout_keeps_map_drawings_trace_and_pack():
     at.session_state["view"] = "Cabinet Layout"
     at.run()
     assert not at.exception, [e.value for e in at.exception]
-    assert len(_drawing_frames(at)) == 2                                     # front and rear drawings
+    frames = _drawing_frames(at)
+    assert len(frames) == 3 and "data-cable=" in str(frames[0].proto)      # cables first, then front and rear
     assert any("iosg-grid" in str(h.proto) for h in at.get("html"))          # the slot map
+    assert at.dataframe and "Cable" in at.dataframe[0].value.columns         # Where Each Cable Goes
     assert [s.label for s in at.selectbox].count("Cabinet") == 1             # one shared cabinet picker
     assert at.selectbox(key="why_tag") is not None                           # Why Is It Here?
     assert at.selectbox(key="selected_cabinet").options[0].endswith("All Cabinet Drawings")   # in the dropdown now
     at.selectbox(key="selected_cabinet").set_value(at.selectbox(key="selected_cabinet").options[0]).run()
     assert not at.exception, [e.value for e in at.exception]
     frames = _drawing_frames(at)
-    assert len(frames) == 1 and str(frames[0].proto).count("<section>") == 3       # every cabinet, one scroll box
+    assert len(frames) == 1 and str(frames[0].proto).count("data-cab=") == 3       # the cables of every cabinet first
     assert not any("iosg-grid" in str(h.proto) for h in at.get("html"))            # it replaces the slot map
+    at.segmented_control(key="cab_show").set_value("Every Signal").run()
+    assert not at.exception, [e.value for e in at.exception]
+    frames = _drawing_frames(at)
+    assert len(frames) == 1 and str(frames[0].proto).count("<section>") == 3       # every drawing, one scroll box
     assert any(b.label.startswith("Download Printable Drawings") for b in at.get("download_button"))
 
 

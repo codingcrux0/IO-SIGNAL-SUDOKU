@@ -97,6 +97,10 @@ Moving around and fixing things:
 - **Cabinet Layout**: bigger slots and drawings; pick **All Cabinet Drawings** in the cabinet list to see every
   cabinet's front and rear in one scroll box, with **Why Is It Here?** for any tag below it. Cabinet alarms show a red
   **!**, and wired spares show their number in white on a small dark label.
+- **Cables first**: the first tab of Cabinet Layout (and the first **Show** choice under All Cabinet Drawings) draws
+  each field cable as one bar on the CIOC, baseplate and channels its pairs land on, with a thin strip showing what
+  its pairs carry. Click a cable to open it into its pairs and a list of its signals; click a signal to see its rules
+  on Rule Check. Find a cable or tag with the box at the top, and see every cable in **Where Each Cable Goes**.
 - **Allocate buttons** are blue when something changed and turn grey (**✓ Allocation Up To Date**) once the
   allocation matches your current inputs. An out-of-date result is always shown as `DRAFT`.
 - **Revision → Revision History**: every allocation of the session is saved (Original, Revision 1, 2 ...), with a

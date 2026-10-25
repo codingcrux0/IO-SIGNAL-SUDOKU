@@ -53,6 +53,8 @@ PLACES: tuple[Place, ...] = (
     _p("Solve", "Self-Test Details", "self test checks passed"),
     _p("Solve", "Stage Timings", "timings speed performance"),
     _p("Cabinet Layout", words="cabinet grid map slots drawings layout"),
+    _p("Cabinet Layout", "Where Each Cable Goes", "cables cable wire route pairs multicore where going baseplate cioc",
+       "cab_tab", "Cables", label="Cabinet Layout › Cables"),
     _p("Cabinet Layout", "Slot Map", "grid slots map cioc baseplate channel charm", "cab_tab", "Slot Map", label="Cabinet Layout › Slot Map"),
     _p("Cabinet Layout", "Why Is It Here?", "why trace reason decision explain", "cab_tab", "Slot Map"),
     _p("Cabinet Layout", "Front (CIOC 1–2)", "drawings elevation front rear print", "cab_tab", "Front & Rear Drawings",

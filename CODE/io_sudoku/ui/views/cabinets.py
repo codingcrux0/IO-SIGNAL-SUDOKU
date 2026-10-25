@@ -1,11 +1,14 @@
-"""Cabinet Layout: one marshalling cabinet, shown two ways from ONE cabinet picker and ONE legend.
+"""Cabinet Layout: one marshalling cabinet, shown three ways from ONE cabinet picker and ONE legend.
 
+  Cables                 the CABLES first: each field cable is a bar on the CIOC and baseplate channels it lands
+                         on; click a cable to open it into its signals (core/cablemap.py), plus a table of where
+                         each cable goes
   Slot Map               the 384-slot grid (4 CIOCs x 8 baseplates x 12 channels) with hover cards,
                          plus the 'Why Is It Here?' decision trace for a tag or cable
   Front & Rear Drawings  the front (CIOC 1-2) and rear (CIOC 3-4) elevations with hover cards
-The picker's first option, All Cabinet Drawings, replaces both with the drawings of every cabinet in one
-scroll box (plus the printable pack), with 'Why Is It Here?' for any tag of any cabinet below it.
-Clicking any slot or drawing cell opens it on Rule Check.
+The picker's first option, All Cabinet Drawings, shows every cabinet in one scroll box, the cables first
+(Show: Cables / Every Signal), with 'Why Is It Here?' for any tag of any cabinet below it.
+Clicking any slot, drawing cell, or signal of an open cable opens it on Rule Check.
 
 (This view replaces the separate Grid and Drawings views; old links to either still open it.)
 """
@@ -13,6 +16,7 @@ from __future__ import annotations
 
 import streamlit as st
 
+from io_sudoku.core.cablemap import cable_page, cable_table, page_height
 from io_sudoku.core.elevation import cabinet_svg
 from io_sudoku.core import helpcontext
 from io_sudoku.core.trace import explain
@@ -20,7 +24,12 @@ from io_sudoku.ui import autofill, state, theme, ui_logic
 from io_sudoku.ui.views import assistant
 from io_sudoku.ui.views._common import ALL_DRAWINGS, cabinet_picker, download_button, main_ctx, result_or_empty
 
-SLOT_MAP, DRAWINGS = "Slot Map", "Front & Rear Drawings"
+CABLES, SLOT_MAP, DRAWINGS = "Cables", "Slot Map", "Front & Rear Drawings"
+EVERY_SIGNAL = "Every Signal"
+SHOW_KEY = "cab_show"                       # All Cabinet Drawings: the cables first, or every signal
+CABLE_HELP = ("Each bar is one field cable, drawn over the CIOC, baseplate and channels its pairs land on; the thin "
+              "strip under it shows what its pairs carry. Click a cable to see its signals, then click a signal "
+              "to see its rules.")
 
 
 def render() -> None:
@@ -38,9 +47,15 @@ def render() -> None:
     if cabinet == ALL_DRAWINGS:
         _all_drawings(result)
         return
-    st.caption("Point at any slot to see its tag, IO type, CHARM and cable. Click it to see every rule that applies to it.")
-    slot_map, drawings = st.tabs([SLOT_MAP, DRAWINGS], key=state.CAB_TAB_KEY, on_change="rerun")   # tracked, so a link can open a tab
+    cables, slot_map, drawings = st.tabs([CABLES, SLOT_MAP, DRAWINGS], key=state.CAB_TAB_KEY,
+                                         on_change="rerun")   # tracked, so a link can open a tab
+    with cables:
+        st.caption(CABLE_HELP)
+        st.iframe(_cable_page(s["result_key"] or "", cabinet, result.rows),
+                  height=min(page_height(result.rows, cabinet), ui_logic.ALL_DRAWINGS_HEIGHT))
+        _cable_table(result.rows, [cabinet])
     with slot_map:
+        st.caption("Point at any slot to see its tag, IO type, CHARM and cable. Click it to see every rule that applies to it.")
         st.html(ui_logic.grid_html(s["result_key"] or "", cabinet, result.rows))
         _why_here(cabinet)
     with drawings:
@@ -50,10 +65,40 @@ def render() -> None:
             st.iframe(page, height=height)
 
 
+@st.cache_data(max_entries=32, show_spinner=False)
+def _cable_page(result_key: str, cabinet: str, _rows: list) -> str:
+    """Cached per (solve, cabinet); `_rows` is left out of the cache key (the key identifies it)."""
+    names = ui_logic.cabinet_names(_rows) if cabinet == ALL_DRAWINGS else [cabinet]
+    return cable_page(_rows, names)
+
+
+def _cable_table(rows: list, cabinets: list[str]) -> None:
+    """Where each cable goes, as a table you can sort and search."""
+    table = cable_table(rows, cabinets)
+    if not table:
+        st.info("No field cables are allocated here yet.")
+        return
+    st.subheader("Where Each Cable Goes", help="One row per field cable: the CIOC, baseplates and CHARMs its pairs "
+                                               "land on. Click a column name to sort.")
+    st.dataframe(table, hide_index=True, width="stretch", height=min(420, 38 + 35 * len(table)),
+                 column_config={"Pairs": st.column_config.NumberColumn(format="%d")})
+
+
 def _all_drawings(result) -> None:
-    """Every cabinet's front and rear drawing, in one box that scrolls on its own."""
+    """Every cabinet in one box that scrolls on its own: the cables first, or every signal's drawing."""
     s = st.session_state
     names = ui_logic.cabinet_names(result.rows)
+    if s.get(SHOW_KEY) not in (CABLES, EVERY_SIGNAL):
+        s[SHOW_KEY] = CABLES
+    st.segmented_control("Show", (CABLES, EVERY_SIGNAL), key=SHOW_KEY, required=True,
+                         help="Cables: each field cable as one bar on its CIOC and baseplate; click it to see its "
+                              "signals. Every Signal: the front and rear drawings with every channel.")
+    if s[SHOW_KEY] == CABLES:
+        st.caption(f"{len(names):,} cabinets. {CABLE_HELP} Find a cable or tag with the box at the top.")
+        st.iframe(_cable_page(s["result_key"] or "", ALL_DRAWINGS, result.rows), height=ui_logic.ALL_DRAWINGS_HEIGHT)
+        _cable_table(result.rows, names)
+        _why_here(ALL_DRAWINGS)
+        return
     st.caption(f"{len(names):,} cabinets, front (CIOC 1–2) and rear (CIOC 3–4). Scroll inside the box; each cabinet's "
                "name stays on top while you scroll it. Click any cell to see its rules.")
     st.iframe(_all_page(s["result_key"] or "", result.rows), height=ui_logic.ALL_DRAWINGS_HEIGHT)

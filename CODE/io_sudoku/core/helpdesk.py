@@ -153,7 +153,7 @@ PAGES = """PAGES OF THE APP (sidebar)
 Upload (file, sample data, template, workspace, column mapping, Saved File Revisions) - Edit File (change cells; Undo
 Last Change; Delete All Changes; Saved File Revisions) - Preflight (data quality before solving, Suggested Fixed File) -
 Solve (Run Allocation, readiness, summary boxes, Wired Spares Per
-Controller, Assumptions Used In This Run) - Cabinet Layout (Slot Map, Front & Rear Drawings, All Cabinet Drawings, Why Is It Here?; click a slot to
+Controller, Assumptions Used In This Run) - Cabinet Layout (Cables: each field cable as a bar on its CIOC and baseplate, click it to see its signals; Slot Map, Front & Rear Drawings, All Cabinet Drawings, Why Is It Here?; click a slot to
 check its rules) - Audit (two tabs: Rule Check - pick cells, live log of every rule that applies, Signal Path;
 Rule Impact - pick one rule or constraint, see every cell, CHARM and signal it affects, met or broken, on a highlighted
 cabinet map) - TQ Board (two tabs: Questions And Sign-Off - Sign Off The Warnings with Edit buttons and the arrow for
