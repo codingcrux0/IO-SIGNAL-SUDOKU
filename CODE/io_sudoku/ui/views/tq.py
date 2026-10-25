@@ -6,7 +6,7 @@ import time
 
 import streamlit as st
 
-from io_sudoku.core import readiness as readiness_mod
+from io_sudoku.core import helpcontext, readiness as readiness_mod
 from io_sudoku.core.config import Config
 from io_sudoku.core.constants import IO_TYPES
 from io_sudoku.core.ingest import read_mdb
@@ -18,6 +18,7 @@ from io_sudoku.core.tq import TQLog
 from io_sudoku.core.tqlife import group_by_owner, tqs_as_email_text
 from io_sudoku.core.validate import validate
 from io_sudoku.ui import editing, state, theme, ui_logic
+from io_sudoku.ui.views import assistant
 from io_sudoku.ui.nav import link
 from io_sudoku.ui.views._common import (allocate_button, ask_first, heading, md_escape, pager, result_or_empty,
                                         tq_table)
@@ -161,7 +162,7 @@ def _row(result, page: int, i: int, severity: str, kind: str, ref: str, text: st
     more.button("▾" if is_open else "▸", key=f"fixmore_{page}_{i}", on_click=_toggle_fix, args=(tq_key,),
                 help="Suggested fix: add your own suggestion, or talk it through with the assistant.")
     if is_open:
-        _fix_panel(result, kind, ref, tq_key)
+        _fix_panel(result, kind, ref, tq_key, text)
 
 
 def _toggle_fix(tq_key: str) -> None:
@@ -177,7 +178,7 @@ def _details(result, kind: str, ref: str, text: str) -> str:
 
 
 # ------------------------------------------------------------------ the suggested fix and your own suggestion
-def _fix_panel(result, kind: str, ref: str, tq_key: str) -> None:
+def _fix_panel(result, kind: str, ref: str, tq_key: str, text: str = "") -> None:
     """Under a row: the tool's suggested fix, then two options - write your own suggestion (kept with the
     project for the next person), or talk it through with the Helpdesk in the panel on the right."""
     s = st.session_state
@@ -188,10 +189,9 @@ def _fix_panel(result, kind: str, ref: str, tq_key: str) -> None:
         st.markdown(f"**Suggested fix:** {md_escape(fix) if fix else 'none was given for this check.'}")
         for sg in [x for x in s["suggestions"] if x.tq_key == tq_key]:
             if sg.status == "approved":
-                st.success(f"Approved suggestion by {md_escape(sg.author)} (approved by {md_escape(sg.reviewer or '')}): "
-                           f"{md_escape(sg.text)}")
+                st.success(f"Verified suggestion by {md_escape(sg.author)}: {md_escape(sg.text)}")
             elif sg.status == "pending":
-                st.caption(f"Waiting for approval on the {link('Rules', 'Rules', 'Review Queue')} page: "
+                st.caption(f"Waiting for verification on the {link('Rules', 'Rules', 'Review Queue')} page: "
                            f"“{md_escape(sg.text)}” by {md_escape(sg.author)}.")
         own, chat = st.tabs(["\U0001F4DD Write Your Own Suggestion", "\U0001F4AC Talk It Through With The Helpdesk"])
         note = s["tq_notes"].get(tq_key) or {}
@@ -203,15 +203,17 @@ def _fix_panel(result, kind: str, ref: str, tq_key: str) -> None:
             st.text_input("Your Name", key="note_by", autocomplete="off", placeholder="Who wrote this?…")
             with st.container(horizontal=True, gap="small"):
                 st.button("Save Note", key=f"note_save_{h}", on_click=_save_note, args=(tq_key, h))
-                st.button("Send For Approval", key=f"note_send_{h}", on_click=_send_note, args=(kind, ref, h),
-                          help="Turns this note into a suggestion that a different person approves on the Rules page. "
-                               "An approved suggestion is guidance: the fix is still made with Edit or an answer.")
+                st.button("Send For Verification", key=f"note_send_{h}", on_click=_send_note, args=(kind, ref, h),
+                          help="Turns this note into a suggestion that is verified with one button on the Rules page. "
+                               "A verified suggestion is guidance: the fix is still made with Edit or an answer.")
             if note.get("text"):
                 st.caption(f"Saved note by {md_escape(note.get('by') or 'unnamed')} at {note.get('time', '')}.")
         with chat:
-            st.caption("Opens the Helpdesk on the right: ask why this question was raised, how to fix it, or get your "
-                       "suggestion worded better. It gives advice only: it cannot change any file, rule or code.")
-            st.button("Open The Helpdesk", key=f"chat_open_{h}", on_click=_open_chat, args=(kind, ref, fix, h))
+            st.caption("Opens the Helpdesk on the right, already told everything about this question: its full text, "
+                       "the suggested fix, where the signal is, why it is there and the other questions about it. "
+                       "Ask why it was raised, how to fix it, or get your suggestion worded better. Advice only: it "
+                       "cannot change any file, rule or code.")
+            assistant.ask_button(f"chat_open_{h}", _tq_topic, (kind, ref, fix, h, text))
 
 
 def _now() -> str:
@@ -240,18 +242,21 @@ def _send_note(kind: str, ref: str, h: str) -> None:
         state.flash("error", " ".join(errors), f"fix_{h}")
         return
     s["suggestions"] = s["suggestions"] + [sg]
-    state.flash("success", "Sent for approval. A different person approves it on the Rules page (Review Queue).", f"fix_{h}")
+    state.flash("success", "Sent for verification. Press Verify on the Rules page (Suggested Fixes) to accept it.", f"fix_{h}")
 
 
-def _open_chat(kind: str, ref: str, fix: str, h: str) -> None:
-    from io_sudoku.ui.views import assistant
+def _tq_topic(kind: str, ref: str, fix: str, h: str, text: str = "") -> dict:
+    """The Helpdesk topic of one question: everything about it (core.helpcontext), in its own conversation."""
     s = st.session_state
     note = (s.get(f"note_text_{h}") or "").strip()
     result = s["result"]
-    question = next((t.message for t in (result.tqs if result is not None else []) if t.tq_id == kind and str(t.ref) == str(ref)), "")
-    assistant.open_chat({"kind": "tq", "tq_key": f"{kind}|{ref}", "tq_id": kind, "ref": ref, "fix": fix,
-                         "question": question, "note": note})
+    question = next((t.message for t in (result.tqs if result is not None else []) if t.tq_id == kind and str(t.ref) == str(ref)), text)
+    tq_key = f"{kind}|{ref}"
+    title, context = helpcontext.tq_focus(result, kind, ref, text, s["tq_notes"].get(tq_key),
+                                          [x for x in s["suggestions"] if x.tq_key == tq_key])
     s["assistant_final"] = note or fix
+    return assistant.topic(f"tq|{tq_key}", "tq", title, context, tq_key=tq_key, tq_id=kind, ref=ref, fix=fix,
+                           question=question, note=note)
 
 
 # ------------------------------------------------------------------ all questions
@@ -333,12 +338,31 @@ def _answers(result) -> None:
         field = c2.selectbox("Field", OVERRIDABLE_FIELDS, key="manual_field", format_func=lambda f: f.replace("_", " ").title())
         with c3:
             _value_widget(field, cfg)
-        st.button("Apply Answer", key="answer_apply", type="primary", on_click=_apply_answer, args=(cfg,))
+        with st.container(horizontal=True, gap="small", vertical_alignment="center", key="answer_buttons"):
+            st.button("Apply Answer", key="answer_apply", type="primary", on_click=_apply_answer, args=(cfg,))
+            assistant.ask_button("answer_ask", _answer_topic, label="Ask The Helpdesk About This Answer",
+                                 help="Opens the Helpdesk on the right, already told which answer you picked or typed, "
+                                      "everything about that tag and its open questions. Ask which value is right "
+                                      "before you apply it. Advice only: it cannot change anything.")
     _answer_check()
     if s["overrides"]:
         st.dataframe(ui_logic.overrides_summary(s["overrides"]), hide_index=True, width="stretch")
         ask_first("clear_answers", "Clear All Answers", f"Remove all {len(s['overrides']):,} saved answers?", _clear_answers,
                   yes="Yes, remove them")
+
+
+def _answer_topic() -> dict:
+    """The Helpdesk topic of the answer box: what is picked or typed now, and everything about that tag."""
+    s = st.session_state
+    field = s.get("manual_field") or ""
+    raw = s.get(f"manual_value_{field}")
+    tag = (s.get("manual_tag") or "").strip()
+    value = "" if raw is None else str(raw).strip()
+    picked = "" if (tag or value) else str(s.get("answer_pick") or "")
+    title, context = helpcontext.answer_focus(s["result"], picked, tag, field, value, s.get("answer_check"),
+                                              tuple(OVERRIDABLE_FIELDS))
+    about = title.split(" · ", 1)[1] if " · " in title else ""
+    return assistant.topic(f"answer|{about}", "answer", title, context)
 
 
 def _value_widget(field: str, cfg: Config) -> None:

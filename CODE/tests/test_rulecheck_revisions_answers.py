@@ -179,7 +179,8 @@ def test_clicking_a_slot_opens_rule_check_with_its_log():
     at = _app("Cabinet Layout")
     sid = cellcheck.slot_id(next(r for r in at.session_state["result"].rows if r["Tag Status"] == "Field"))
     at.text_input(key="cellpick_box").set_value(f"{sid}@123").run()
-    assert at.session_state["view"] == "Rule Check" and at.session_state["rc_cells"][0] == sid
+    assert at.session_state["view"] == "Rule Radar" and at.session_state["rule_tab"] == "Rule Check"
+    assert at.session_state["rc_cells"][0] == sid
     assert not at.exception, [e.value for e in at.exception]
     assert any("met" in m.value and "broken" in m.value for m in at.markdown)
 

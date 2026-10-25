@@ -8,11 +8,11 @@ st.set_page_config(page_title="IO Signal Sudoku", page_icon="\U0001F9E9", layout
 from io_sudoku.ui import nav, search, state, theme                          # noqa: E402  (after set_page_config)
 from io_sudoku.ui.errors import error_boundary                           # noqa: E402
 from io_sudoku.ui.views import (assistant, cabinets, downloads, edit, parts, preflight, revision,  # noqa: E402
-                                rulecheck, ruleimpact, rules, solve, tq, upload)
+                                ruleradar, rules, solve, tq, upload)
 
 VIEW_MODULES = {"Upload": upload, "Edit File": edit, "Preflight": preflight, "Solve": solve, "Cabinet Layout": cabinets,
-                "Rule Check": rulecheck, "Rule Impact": ruleimpact, "TQ Board": tq, "Parts": parts,
-                "Revision": revision, "Rules": rules, "Files": downloads}   # the Simulator is a tab of Revision
+                "Rule Radar": ruleradar, "TQ Board": tq, "Parts": parts, "Revision": revision, "Rules": rules,
+                "Files": downloads}   # the Simulator is a tab of Revision; Rule Check and Rule Impact are tabs of Rule Radar
 
 
 def main() -> None:

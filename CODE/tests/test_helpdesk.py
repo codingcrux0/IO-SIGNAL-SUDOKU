@@ -140,4 +140,5 @@ def test_a_tq_opens_the_helpdesk_about_that_question():
     at.button(key=h).click().run()
     chat = at.session_state["chat"]
     assert chat["open"] and chat["kind"] == "tq" and chat["tq_id"] == "ALARMS-MISSING-FOR-CABINET" and chat["question"]
-    assert any("About" in c.value for c in at.caption) and not at.exception
+    assert any("About:" in m.value for m in at.markdown) and not at.exception                     # highlighted topic
+    assert chat["question"] in chat["context"] and "suggested fix" in chat["context"]               # it already knows

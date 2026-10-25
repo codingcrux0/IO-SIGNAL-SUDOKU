@@ -94,7 +94,9 @@ def test_the_slot_map_can_light_up_one_rules_cells():
 
 # ------------------------------------------------------------------ Rule Impact (page)
 def test_the_rule_impact_page_shows_where_a_rule_hits_and_opens_rule_check():
-    at = _app("Rule Impact")
+    at = _app("Rule Radar")
+    at.session_state["rule_tab"] = "Rule Impact"
+    at.run()
     assert not at.exception and "Pick a rule in the list above" in _texts(at)
     at.session_state["ri_pick"] = "V06|Segregation A and B never share a CIOC"
     at.run()
@@ -108,7 +110,7 @@ def test_the_rule_impact_page_shows_where_a_rule_hits_and_opens_rule_check():
 
 
 def test_rule_impact_search_and_filters_do_not_break():
-    at = _app("Rule Impact")
+    at = _app("Rule Radar")
     at.text_input(key="ri_find").set_value("spares").run()
     assert not at.exception
     at.toggle(key="ri_problems").set_value(True).run()
@@ -117,7 +119,7 @@ def test_rule_impact_search_and_filters_do_not_break():
 
 # ------------------------------------------------------------------ the simulator is a tab of Revision
 def test_the_simulator_moved_into_revision_and_old_links_still_work():
-    assert "Simulator" not in state.VIEWS and "Health" not in state.VIEWS and "Rule Impact" in state.VIEWS
+    assert "Simulator" not in state.VIEWS and "Health" not in state.VIEWS and "Rule Radar" in state.VIEWS
     assert not [p for p in search.PLACES if p.view in ("Simulator", "Health")]
     at = AppTest.from_file(APP, default_timeout=90)
     at.query_params["view"] = "Simulator"

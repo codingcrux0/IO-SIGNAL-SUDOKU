@@ -37,8 +37,7 @@ def test_sample_button_solves_and_all_views_render():
         assert not at.error, (view, [e.value for e in at.error])
 
 
-def test_rule_proposal_and_approval_flow(monkeypatch):
-    monkeypatch.setenv("APPROVER_PASSCODE", "letmein")
+def test_rule_proposal_and_verify_flow():
     at = run("Rules")
     at.text_input(key="rule_author").set_value("alice")
     at.selectbox(key="rule_tpl").set_value("high_current_keyword")
@@ -48,28 +47,8 @@ def test_rule_proposal_and_approval_flow(monkeypatch):
     assert not at.exception
     (p,) = at.session_state["proposals"]
     assert p.status == "pending" and "psv" in p.statement
-    at.text_input(key=f"rv_{p.id}").set_value("alice")            # author may not approve their own rule
-    at.text_input(key=f"pc_{p.id}").set_value("letmein")
-    next(b for b in at.button if b.label == "Approve Rule").click().run()
-    assert p.status == "pending"
-    at.text_input(key=f"rv_{p.id}").set_value("bob")
-    next(b for b in at.button if b.label == "Approve Rule").click().run()
+    at.button(key=f"verify_{p.id}").click().run()                  # one button, no passcode (prototype)
     assert at.session_state["proposals"][0].status == "approved" and not at.exception
-
-
-def test_wrong_passcode_is_refused(monkeypatch):
-    monkeypatch.setenv("APPROVER_PASSCODE", "letmein")
-    at = run("Rules")
-    at.text_input(key="rule_author").set_value("alice")
-    at.selectbox(key="rule_tpl").set_value("spare_pct")
-    at.run()
-    at.number_input(key="rf_spare_pct_value").set_value(12)
-    next(b for b in at.button if b.label == "Propose Rule").click().run()
-    (p,) = at.session_state["proposals"]
-    at.text_input(key=f"rv_{p.id}").set_value("bob")
-    at.text_input(key=f"pc_{p.id}").set_value("wrong")
-    next(b for b in at.button if b.label == "Approve Rule").click().run()
-    assert at.session_state["proposals"][0].status == "pending"
 
 
 def test_ai_box_is_disabled_without_a_key(monkeypatch):

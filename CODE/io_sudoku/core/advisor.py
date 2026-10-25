@@ -3,7 +3,7 @@
 What it does: an engineer types a plain-English wish ("treat PSV as high-current").  The model
 turns it into ONE of the 8 fixed rule templates (see rulechange.TEMPLATES) plus field values.
 That draft goes through the same strict validation as a hand-filled form and becomes a PENDING
-proposal.  Nothing changes until a different person approves it.
+proposal.  Nothing changes until it is verified in the Review Queue.
 
 Hard boundaries (proved by tests/test_ai_boundary.py):
   * No allocation module imports this file or the `anthropic` package.

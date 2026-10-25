@@ -3,8 +3,9 @@
 How it works:
   1. Next to a question's suggested fix, an engineer writes their OWN suggestion (a note), so the next
      person who opens the TQ sees it.  A note changes nothing.
-  2. When the wording is final, the engineer sends it for approval: it becomes a PENDING Suggestion.
-  3. A different person who knows the approver passcode approves or rejects it (the same gate as rules).
+  2. When the wording is final, the engineer sends it for verification: it becomes a PENDING Suggestion.
+  3. Someone presses Verify or Reject on the Rules page (verify() / dismiss(), no passcode in this
+     prototype).  approve()/reject() are the stricter gate (a different person and the approver passcode).
 An approved suggestion is guidance for whoever fixes the TQ.  It never edits the file, never changes the
 allocation and never becomes a rule by itself: the fix is still made through Edit, an answer or an
 approved rule, then a re-allocation, so every check still runs.
@@ -18,7 +19,7 @@ import hashlib
 from dataclasses import dataclass
 from typing import Any
 
-from io_sudoku.core.rulechange import is_approver
+from io_sudoku.core.rulechange import PROTOTYPE_REVIEWER, is_approver
 from io_sudoku.core.textnorm import clean, match_key
 
 MAX_TEXT = 1000
@@ -107,3 +108,21 @@ def from_dict(data: dict[str, Any]) -> Suggestion | None:
         return Suggestion(**{k: data.get(k) for k in Suggestion.__dataclass_fields__ if k in data})
     except Exception:  # noqa: BLE001 - a damaged entry is skipped
         return None
+
+
+def verify(sg: Suggestion, now: str, reviewer: str = "") -> list[str]:
+    """Prototype approval: one Verify button, no passcode."""
+    if sg.status != "pending":
+        return ["This suggestion has already been decided."]
+    sg.status, sg.reviewer, sg.decided = "approved", clean(reviewer) or PROTOTYPE_REVIEWER, now
+    return []
+
+
+def dismiss(sg: Suggestion, now: str, reason: str = "", reviewer: str = "") -> list[str]:
+    """Prototype rejection: no passcode; the reason is optional."""
+    if sg.status != "pending":
+        return ["This suggestion has already been decided."]
+    sg.status, sg.reviewer, sg.decided = "rejected", clean(reviewer) or PROTOTYPE_REVIEWER, now
+    sg.reason = clean(reason) or "Rejected on the Rules page."
+    return []
+

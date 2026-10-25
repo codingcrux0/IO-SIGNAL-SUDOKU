@@ -1,6 +1,6 @@
 """Project rules on CHARM signals: extra project columns and constraints, added through the governed rule path.
 
-Three kinds (proposed on the Rules page, approved by a different person, activated as a new pack version):
+Three kinds (proposed on the Rules page, verified in the Review Queue, activated as a new pack version):
   project_column   'Add the project column Loop Check = Pending to every signal whose IO Type contains AIR.'
                    A label the project wants on some signals.  It is shown in the app (Rule Check, the
                    'where it applies' table, its own CSV); the 76-column allocation is LOCKED, so it is never

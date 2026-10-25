@@ -1,4 +1,4 @@
-"""Rules: governed rule changes.  Engineers propose, a DIFFERENT person approves, the audit log records it all.
+"""Rules: governed rule changes.  Engineers propose, someone verifies (one button), the audit log records it all.
 
 Three kinds of rule can be proposed: Settings (the tunable project values), New Columns (a project label on
 some CHARM signals) and Constraints (a check every covered signal must pass).  Every rule shows which CHARM
@@ -28,7 +28,7 @@ GROUP_HELP = ("Settings change a project value (spare %, an IO-type alias, a cab
               "allocation, and a broken one becomes a warning to sign off. None of them can move a signal.")
 ARG_LABELS = {"io": "IO Type", "match_column": "Look At Column", "match_text": "That Contains", "charm_type": "Must Use CHARM",
               "check_column": "Must Have Filled In", "column": "New Column Name", "value": "Value", "pct": "Percent"}
-QUEUE, SUGGESTIONS, PREVIEW, ACTIVE = "Review Queue", "Suggested Fixes Waiting For Approval", "Preview And Activate", \
+QUEUE, SUGGESTIONS, PREVIEW, ACTIVE = "Review Queue", "Suggested Fixes Waiting For Verification", "Preview And Activate", \
     "Project Rules And Where They Apply"
 
 
@@ -97,7 +97,7 @@ def _propose(template: str) -> None:
         state.flash("error", " ".join(errors), "Propose A Rule")
         return
     s["proposals"] = s["proposals"] + [proposal]
-    state.flash("success", f"Proposed: {proposal.statement} It waits for approval in the Review Queue.", "Propose A Rule")
+    state.flash("success", f"Proposed: {proposal.statement} It waits in the Review Queue: press Verify there to accept it.", "Propose A Rule")
 
 
 def _client():
@@ -117,7 +117,7 @@ def _draft_ai() -> None:
     draft = advisor.draft_rule(s.get("ai_request") or "", s.get("rule_author") or "", _client(), _now(), _rooms())
     if draft.ok:
         s["proposals"] = s["proposals"] + [draft.proposal]
-        state.flash("success", f"The assistant drafted: {draft.proposal.statement} It waits for approval like any other rule.",
+        state.flash("success", f"The assistant drafted: {draft.proposal.statement} It waits in the Review Queue like any other rule.",
                     "Ask The AI Assistant (optional)")
     else:
         state.flash("warning", draft.message + (" " + " ".join(draft.errors) if draft.errors else ""),
@@ -125,21 +125,19 @@ def _draft_ai() -> None:
 
 
 def _decide(proposal_id: str, action: str) -> None:
+    """Verify or reject a proposed rule: one button, no passcode (this is a prototype)."""
     s = st.session_state
     target = next((p for p in s["proposals"] if p.id == proposal_id), None)
     if target is None:
         return
-    reviewer, passcode = s.get(f"rv_{proposal_id}") or "", s.get(f"pc_{proposal_id}") or ""
-    secret = state.secret("APPROVER_PASSCODE")
     if action == "approve":
-        errors = rc.approve(target, reviewer, passcode, secret, _now())
+        errors = rc.verify(target, _now())
     else:
-        if not s.get(f"ok_{proposal_id}"):
-            state.flash("error", "Tick “I understand” before rejecting a rule.", QUEUE)
-            return
-        errors = rc.reject(target, reviewer, s.get(f"rs_{proposal_id}") or "", passcode, secret, _now())
+        errors = rc.dismiss(target, _now(), s.get(f"rs_{proposal_id}") or "")
+    s["proposals"] = list(s["proposals"])
     state.flash("error" if errors else "success", " ".join(errors) if errors else
-                f"Rule {target.status}." + (" Preview and activate it below to use it." if target.status == "approved" else ""), QUEUE)
+                ("Rule verified. Preview and activate it below to use it." if target.status == "approved" else "Rule rejected."),
+                QUEUE)
 
 
 def _decide_suggestion(sg_id: str, action: str) -> None:
@@ -147,14 +145,25 @@ def _decide_suggestion(sg_id: str, action: str) -> None:
     target = next((x for x in s["suggestions"] if x.id == sg_id), None)
     if target is None:
         return
-    reviewer, passcode = s.get(f"sgrv_{sg_id}") or "", s.get(f"sgpc_{sg_id}") or ""
-    secret = state.secret("APPROVER_PASSCODE")
     if action == "approve":
-        errors = sg_mod.approve(target, reviewer, passcode, secret, _now())
+        errors = sg_mod.verify(target, _now())
     else:
-        errors = sg_mod.reject(target, reviewer, s.get(f"sgrs_{sg_id}") or "", passcode, secret, _now())
+        errors = sg_mod.dismiss(target, _now(), s.get(f"sgrs_{sg_id}") or "")
     s["suggestions"] = list(s["suggestions"])
-    state.flash("error" if errors else "success", " ".join(errors) if errors else f"Suggestion {target.status}.", SUGGESTIONS)
+    state.flash("error" if errors else "success", " ".join(errors) if errors else
+                ("Suggestion verified." if target.status == "approved" else "Suggestion rejected."), SUGGESTIONS)
+
+
+def _decision_buttons(item_id: str, prefix: str, decide, what: str) -> None:
+    """✓ Verify, and ✕ Reject behind a small pop-up (with an optional reason), side by side."""
+    with st.container(horizontal=True, horizontal_alignment="right", gap="small", key=f"{prefix}buttons_{item_id}"):
+        st.button("Verify", key=f"{prefix}verify_{item_id}", type="primary", icon=":material/check:",
+                  on_click=decide, args=(item_id, "approve"),
+                  help=f"Accept this {what}. No passcode is needed in this prototype.")
+        with st.popover("Reject", icon=":material/close:", key=f"{prefix}reject_pop_{item_id}"):
+            st.text_input("Reason (optional)", key=f"{prefix}rs_{item_id}", autocomplete="off")
+            st.button(f"Reject This {what.title()}", key=f"{prefix}reject_{item_id}", on_click=decide,
+                      args=(item_id, "reject"))
 
 
 def _preview() -> None:
@@ -165,7 +174,7 @@ def _preview() -> None:
     cfg_now = ui_logic.config_for_pack(s["pack"])
     new_pack = rc.apply_approved(s["pack"], s["proposals"], cfg_now)
     if pack_hash(new_pack) == pack_hash(s["pack"]):
-        state.flash("warning", "There is no approved rule to apply yet.", PREVIEW)
+        state.flash("warning", "There is no verified rule to apply yet.", PREVIEW)
         return
     before = solve(s["mdb_bytes"], cfg_now, "00", column_overrides=s["column_overrides"])
     after = solve(s["mdb_bytes"], ui_logic.config_for_pack(new_pack), "00", column_overrides=s["column_overrides"])
@@ -209,8 +218,8 @@ def _import_pack() -> None:
 # -------------------------------------------------------------------------------- view
 def render() -> None:
     s = st.session_state
-    st.header("Rules", help="Engineers propose rules from fixed forms, a different person approves them with the "
-                            "approver passcode, then they are previewed and activated as a new rule-pack version. "
+    st.header("Rules", help="Engineers propose rules from fixed forms, someone verifies them in the Review Queue "
+                            "(one Verify button), then they are previewed and activated as a new rule-pack version. "
                             "Every step is in the audit log. The locked rules can never be changed.")
     pack = s["pack"]
     with st.expander(f"Locked Rules ({len(LOCKED_RULES)}) \u00b7 they can never be changed", icon="\U0001F512"):
@@ -280,36 +289,33 @@ def _propose_form() -> None:
         st.button("Propose Rule", key="rule_propose", type="primary", on_click=_propose, args=(template,))
 
 
+def _status(status: str) -> str:
+    word = {"approved": "verified", "rejected": "rejected"}.get(status, "waiting for verification")
+    colour = {"approved": "#3fb950", "rejected": "#ff7b72"}.get(status, "#e3b341")
+    return f"<span style='color:{colour};font-weight:700'>{word}</span>"
+
+
 def _queue() -> None:
     s = st.session_state
-    heading(QUEUE, "A different person approves or rejects each proposal with the approver passcode. "
-                   "Approved rules are used only after Preview And Activate.")
+    heading(QUEUE, "Review each proposed rule here: press Verify to accept it, or Reject. Verified rules are used "
+                   "only after Preview And Activate.")
     if not s["proposals"]:
         st.caption("No rules have been proposed yet.")
         return
-    if not state.secret("APPROVER_PASSCODE"):
-        st.warning("Approval is switched off: no approver passcode is configured for this deployment.")
     for p in s["proposals"]:
-        colour = {"approved": "#3fb950", "rejected": "#ff7b72"}.get(p.status, "#e3b341")
         with st.container(border=True, key=f"proposal_{p.id}"):
-            st.markdown(f"**{md_escape(p.statement)}**  \n<small>{'AI draft' if p.source == 'ai' else 'Form'} · "
-                        f"{md_escape(rc.TEMPLATES[p.template].label)} · proposed by {md_escape(p.author)} · "
-                        f"<span style='color:{colour};font-weight:700'>{p.status}</span></small>",
-                        unsafe_allow_html=True, help=("Assistant's reasoning (information only): " + p.rationale) if p.rationale else None)
+            box, buttons = st.columns([4, 1.6], vertical_alignment="center")
+            box.markdown(f"**{md_escape(p.statement)}**  \n<small>{'AI draft' if p.source == 'ai' else 'Form'} · "
+                         f"{md_escape(rc.TEMPLATES[p.template].label)} · proposed by {md_escape(p.author)} · "
+                         f"{_status(p.status)}" + (f" · by {md_escape(p.reviewer)}" if p.reviewer else "") + "</small>",
+                         unsafe_allow_html=True,
+                         help=("Assistant's reasoning (information only): " + p.rationale) if p.rationale else None)
+            if p.status == "pending":
+                with buttons:
+                    _decision_buttons(p.id, "", _decide, "rule")
+            elif p.status == "rejected" and p.reason:
+                buttons.caption(f"Reason: {md_escape(p.reason)}")
             _where_it_applies(p.template, p.args, p.id)
-            if p.status != "pending":
-                continue
-            with st.expander(f"Approver Decision for {p.id}"):
-                with st.form(f"decide_{p.id}"):
-                    st.text_input("Reviewer Name", key=f"rv_{p.id}", autocomplete="off")
-                    st.text_input("Approver Passcode", key=f"pc_{p.id}", type="password", autocomplete="off")
-                    st.text_input("Reason (if rejecting)", key=f"rs_{p.id}", autocomplete="off")
-                    st.checkbox("I understand rejecting is final", key=f"ok_{p.id}")
-                    a, b = st.columns(2)
-                    with a:
-                        st.form_submit_button("Approve Rule", on_click=_decide, args=(p.id, "approve"))
-                    with b:
-                        st.form_submit_button("Reject Rule", on_click=_decide, args=(p.id, "reject"))
 
 
 def _suggestions() -> None:
@@ -317,27 +323,17 @@ def _suggestions() -> None:
     items = s["suggestions"]
     if not items:
         return
-    heading(SUGGESTIONS, "Suggested fixes written on the TQ Board. A different person approves them with the approver "
-                         "passcode. An approved suggestion is guidance for whoever fixes the question: it changes "
-                         "nothing by itself.")
+    heading(SUGGESTIONS, "Suggested fixes written on the TQ Board. Press Verify to accept one, or Reject. A verified "
+                         "suggestion is guidance for whoever fixes the question: it changes nothing by itself.")
     for x in items:
-        colour = {"approved": "#3fb950", "rejected": "#ff7b72"}.get(x.status, "#e3b341")
         with st.container(border=True, key=f"suggestion_{x.id}"):
-            st.markdown(f"**{md_escape(x.tq_id)} · {md_escape(x.ref or '-')}**: {md_escape(x.text)}  \n"
-                        f"<small>by {md_escape(x.author)} · <span style='color:{colour};font-weight:700'>{x.status}</span>"
-                        + (f" · by {md_escape(x.reviewer)}" if x.reviewer else "") + "</small>", unsafe_allow_html=True)
-            if x.status != "pending":
-                continue
-            with st.expander(f"Approver Decision for {x.id}"):
-                with st.form(f"sgdecide_{x.id}"):
-                    st.text_input("Reviewer Name", key=f"sgrv_{x.id}", autocomplete="off")
-                    st.text_input("Approver Passcode", key=f"sgpc_{x.id}", type="password", autocomplete="off")
-                    st.text_input("Reason (if rejecting)", key=f"sgrs_{x.id}", autocomplete="off")
-                    a, b = st.columns(2)
-                    with a:
-                        st.form_submit_button("Approve Suggestion", on_click=_decide_suggestion, args=(x.id, "approve"))
-                    with b:
-                        st.form_submit_button("Reject Suggestion", on_click=_decide_suggestion, args=(x.id, "reject"))
+            box, buttons = st.columns([4, 1.6], vertical_alignment="center")
+            box.markdown(f"**{md_escape(x.tq_id)} · {md_escape(x.ref or '-')}**: {md_escape(x.text)}  \n"
+                         f"<small>by {md_escape(x.author)} · {_status(x.status)}"
+                         + (f" · by {md_escape(x.reviewer)}" if x.reviewer else "") + "</small>", unsafe_allow_html=True)
+            if x.status == "pending":
+                with buttons:
+                    _decision_buttons(x.id, "sg", _decide_suggestion, "suggestion")
 
 
 def _impact() -> None:

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import streamlit as st
 
+from io_sudoku.core import helpcontext
 from io_sudoku.core.allocio import looks_like_allocation, read_allocation
 from io_sudoku.core.revision import solve_incremental
 from io_sudoku.core.tqlife import diff_tqs
@@ -12,6 +13,7 @@ from io_sudoku.core.workspace import import_workspace
 from io_sudoku.core.overrides import overrides_to_json
 from io_sudoku.ui import history, impact, state, theme, ui_logic
 from io_sudoku.ui.nav import link
+from io_sudoku.ui.views import assistant
 from io_sudoku.ui.views._common import ask_first, file_card, heading, md_escape, stale_banner
 
 SOURCES = ("Current Result", "Allocation Workbook (.xlsx)", "Workspace (.zip)")
@@ -164,6 +166,10 @@ def _categories(report, rows_a, result_b) -> None:
                 st.caption("Pick a row (tick its box) to see the change in detail.")
 
 
+def _same(topic: dict) -> dict:
+    return topic
+
+
 def _open_in_rule_check(sid: str) -> None:
     from io_sudoku.ui.views import rulecheck
     rulecheck.pick(sid)
@@ -200,8 +206,15 @@ def _change_panel(change, rows_a, result_b, a_index, b_index) -> None:
                     st.button("Open In Rule Check", key="rev_to_rulecheck", on_click=_open_in_rule_check, args=(sid,),
                               help="See every rule that applies to this signal in Rev B, with its signal path.")
             else:
+                checks = []
                 st.caption("This signal is not in Rev B, so no rule applies to it any more. Its slot became free "
                            "(see Spare Conversions).")
+            title, context = helpcontext.change_focus(change, detail.diffs, checks, _loc(change.a_loc), _loc(change.b_loc))
+            assistant.ask_button("rev_ask", _same, (assistant.topic(f"change|{st.session_state.get('rev_key') or ''}|"
+                                                                    f"{change.category}|{change.tag}", "change", title,
+                                                                    context),),
+                                 help="Opens the Helpdesk on the right, already told what changed in this signal and "
+                                      "why it sits where it does in Rev B. Advice only: it cannot change anything.")
 
 
 # ------------------------------------------------------------------ revision history

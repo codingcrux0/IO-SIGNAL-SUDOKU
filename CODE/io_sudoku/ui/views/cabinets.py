@@ -14,8 +14,10 @@ from __future__ import annotations
 import streamlit as st
 
 from io_sudoku.core.elevation import cabinet_svg
+from io_sudoku.core import helpcontext
 from io_sudoku.core.trace import explain
 from io_sudoku.ui import state, theme, ui_logic
+from io_sudoku.ui.views import assistant
 from io_sudoku.ui.views._common import ALL_DRAWINGS, cabinet_picker, download_button, main_ctx, result_or_empty
 
 SLOT_MAP, DRAWINGS = "Slot Map", "Front & Rear Drawings"
@@ -96,5 +98,13 @@ def _why_here(cabinet: str) -> None:
     if lines:
         with st.container(height=360) if len(lines) > 8 else st.container():      # a scroll box for long traces
             st.markdown("\n".join(f"{n}. {line}" for n, line in enumerate(lines, start=1)))
+        assistant.ask_button("why_ask", _tag_topic, (query, lines), in_fragment=True,
+                             help="Opens the Helpdesk on the right, already told where this sits, the solver's "
+                                  "reasons and its questions. Advice only: it cannot change anything.")
     else:
         st.info(f"No decisions were recorded for “{query}”.")
+
+
+def _tag_topic(query: str, lines: list[str]) -> dict:
+    title, context = helpcontext.tag_focus(st.session_state["result"], query, lines)
+    return assistant.topic(f"tag|{query}", "tag", title, context)

@@ -1,4 +1,5 @@
-"""Rule Impact: pick one rule or constraint and see every cell, CHARM and signal it affects - met or broken.
+"""Rule Impact (the second tab of Rule Radar): pick one rule or constraint and see every cell, CHARM and signal it
+affects - met or broken.
 
 Rule Check goes from cells to rules; this page goes from a rule to its cells.  The list is worked out from
 the current allocation on every new allocation (core.ruleimpact, built on the same checks as Rule Check), so
@@ -14,10 +15,11 @@ from functools import partial
 import pandas as pd
 import streamlit as st
 
-from io_sudoku.core import ruleimpact as ri
+from io_sudoku.core import helpcontext, ruleimpact as ri
 from io_sudoku.core.overrides import overrides_to_json
 from io_sudoku.ui import state, theme, ui_logic
-from io_sudoku.ui.nav import link
+from io_sudoku.ui.nav import link, link_to
+from io_sudoku.ui.views import assistant
 from io_sudoku.ui.views._common import heading, md_escape, result_or_empty
 
 CURRENT, REV_B = "Current Allocation", "Rev B Comparison"
@@ -46,12 +48,11 @@ def _map(key: str, rule_key: str, cabinet: str, _rows: list, _marks: dict) -> st
 
 def render() -> None:
     s = st.session_state
-    st.header("Rule Impact", help="Pick one rule or constraint and see every cell (slot), CHARM and signal it "
-                                  "applies to, and where it is met or broken: the locked rules, the pack settings, "
-                                  "your project rules, answers and pins, and open questions. Rule Check is the other "
-                                  "way round (pick cells, see their rules). Nothing here changes the allocation.")
     if result_or_empty("the rule impact", "ri") is None:
         return
+    st.caption("Pick one rule or constraint and see every cell (slot), CHARM and signal it applies to, and where it is met "
+               "or broken: the locked rules, the pack settings, your project rules, answers and pins, and open questions. "
+               f"The other way round (pick cells, see their rules) is the {link_to('Rule Check', 'Rule Radar › Rule Check')} tab.")
     if s.get("rev_b_result") is not None:
         st.radio("Look At", (CURRENT, REV_B), key="ri_source", horizontal=True,
                  help="Rev B Comparison = the new revision worked out on the Revision page.")
@@ -134,8 +135,13 @@ def _where(impact: ri.Impact | None, result, full_key: str) -> None:
     broken, look = impact.count(ri.FAIL), impact.count(ri.WARN)
     verdict = ("✗ broken in " + f"{broken:,} cell(s)") if broken else ("▲ needs a look in " + f"{look:,} cell(s)") if look \
         else ("✓ met everywhere it applies" if impact.count(ri.PASS) else "• applies as information")
-    st.markdown(f"**{md_escape(impact.title)}** &nbsp;<small>{md_escape(impact.rule)} · {md_escape(impact.group)} · "
-                f"{verdict}</small>", unsafe_allow_html=True)
+    title, ask = st.columns([4, 1.6], vertical_alignment="center")
+    title.markdown(f"**{md_escape(impact.title)}** &nbsp;<small>{md_escape(impact.rule)} · {md_escape(impact.group)} · "
+                   f"{verdict}</small>", unsafe_allow_html=True)
+    with ask:
+        assistant.ask_button("ri_ask", _rule_topic, (full_key, impact.key), width="stretch",
+                             help="Opens the Helpdesk on the right, already told about this rule: where it is met, "
+                                  "broken or needs a look, its cabinets and CHARMs. Advice only: it cannot change anything.")
     st.caption(ri.GROUP_HELP.get(impact.group, ""))
     if not impact.hits:
         st.info("This rule applies to no cell of this allocation yet (no signal matches what it covers). Check what "
@@ -211,6 +217,18 @@ def _cells(impact: ri.Impact) -> None:
                   "See every rule that applies to these cells, with their signal paths.")
         st.download_button("Download This List (.csv)", data=_csv(impact, hits), mime="text/csv", on_click="ignore",
                            file_name=f"Rule_Impact_{ui_logic.sha256_hex(impact.key)[:6]}.csv", key="ri_csv")
+
+
+def _rule_topic(full_key: str, rule_key: str) -> dict | None:
+    """The Helpdesk topic of one rule: its hits, worked out again from the same cached list."""
+    s = st.session_state
+    result, _ = _source()
+    impact = next((x for x in _impacts(full_key, result, s["overrides"], s["pins"]) if x.key == rule_key), None)
+    if impact is None:
+        return None
+    source = "Rev B comparison" if s.get("rev_b_result") is not None and s.get("ri_source") == REV_B else "current allocation"
+    title, context = helpcontext.rule_focus(impact, source)
+    return assistant.topic(f"impact|{source}|{rule_key}", "impact", title, context)
 
 
 def _csv(impact: ri.Impact, hits: list[ri.Hit]) -> bytes:

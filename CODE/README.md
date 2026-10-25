@@ -9,7 +9,7 @@ A deterministic DeltaV IO allocation solver. Give it the customer IO list (MDB, 
   and governed rule changes.
 
 **No AI is used to allocate.** The same input always gives byte-identical output (a SHA-256 fingerprint proves it).
-The optional AI box only drafts rule proposals; a different person must approve them, and the AI never sees your data.
+The optional AI box only drafts rule proposals; each one must be verified in the Review Queue, and the AI never changes your data.
 
 ## Run it
 
@@ -36,22 +36,28 @@ Moving around and fixing things:
   and warning on the TQ Board) opens this page at the exact cell and brings you back when you save. A question about
   a whole cable lists every row of that cable; one about a whole cabinet opens that cabinet; one about a column opens
   the column mapping. Changes are listed, the last one can be undone, and all can be deleted (both ask first).
-  Searches for cells (Edit File, Rule Check, Why Is It Here?, the file viewer) are **case-sensitive**; the search bar
+  Searches for cells (Edit File, Rule Radar's Rule Check, Why Is It Here?, the file viewer) are **case-sensitive**; the search bar
   and the TQ search are not.
 - **TQ Board**: filter the sign-off box (Errors, Waiting, Signed Off, Problem) and the question list (coloured
   Error / Warning / Info buttons), with classic page buttons `‹ 1 2 3 … 9 ›` (press **…** to type a page). The **▸**
   next to a question shows its suggested fix: write your own suggestion (kept in the workspace for the next person)
-  or send it for approval, or talk it through with the **Helpdesk**. **Answer A Question** picks the tag from a list and then asks you to **verify** the answer: the tool
+  or send it for verification, or talk it through with the **Helpdesk**. **Answer A Question** picks the tag from a list and then asks you to **verify** the answer: the tool
   re-allocates and says whether the question is really cleared (if not, an `ANSWER-UNRESOLVED` warning is raised).
 - **Helpdesk** (the round **💬 Help** button at the bottom right of every page): a customer-support chat that slides
   in on the right; the page shrinks to make room and goes back when you close it. It explains pages, questions and
   rules, suggests how to fix a problem, and words suggestions and rules (it can also turn a request into a rule
-  *proposal*, which still needs another person's approval). It runs on Google Gemini, tries the best Pro model first
+  *proposal*, which still has to be verified on the Rules page). It runs on Google Gemini, tries the best Pro model first
   and falls back to the best model your key allows. It gives advice in words only: it has no tools, cannot change
   the file, the allocation, the rules or any code, never writes code, images or files, stays on this project, and its
-  formal, family-friendly personality is fixed in `io_sudoku/core/helpdesk.py`. It sees a short summary of the page,
-  never your whole file. To switch it on, add the secret `GEMINI_API_KEY` (locally in `.streamlit/secrets.toml`,
+  formal, family-friendly personality is fixed in `io_sudoku/core/helpdesk.py`. It sees a short summary of the project,
+  never your whole file. **Ask The Helpdesk** buttons next to a TQ, the **Answer A Question** box, a Rule Check cell, a
+  Rule Impact rule, *Why Is It Here?* and a revision change open it *about that thing*: it is already told the details
+  (the question and its fix, the signal's row and position, the rules on it, its other questions; see
+  `io_sudoku/core/helpcontext.py`), shown highlighted at the top of the chat, so you can ask straight away. Every topic
+  is its own conversation: another question starts a fresh chat, and the **Conversation** list takes you back to an
+  earlier one with only its own messages. To switch it on, add the secret `GEMINI_API_KEY` (locally in `.streamlit/secrets.toml`,
   which git ignores; on Streamlit Cloud under **Settings → Secrets**).
+- **Rule Radar** has two tabs, **Rule Check** and **Rule Impact**.
 - **Rule Check**: pick any cells (or click a slot or drawing cell on Cabinet Layout) and see a live log of every rule
   and constraint that applies to each: ✓ met, ✗ broken, ▲ to check, plus answers, pins and the solver's decisions.
   Point at **Signal Path** for the way from the field device to the controller.
@@ -81,6 +87,8 @@ Moving around and fixing things:
   locked 76-column allocation) or **Constraints** (checks every covered signal must pass; a broken one becomes a
   `PROJECT-RULE-BROKEN` warning). Every rule has **👁 Where It Applies**, and Preview lists every cell a new pack
   would change, signal by signal. None of them can move a signal, and the locked rules cannot be proposed at all.
+  Each proposal waits in the **Review Queue** with a **Verify** button beside it (and **Reject**, with an optional
+  reason). This prototype needs no passcode; a verified rule is used only after **Preview And Activate**.
 
 To see how the tool handles bad input, upload a file from `test_cases/`. The 21 files there are copies of the sample
 MDB with problems planted on purpose: messy formatting, tag, IO type, cable, pair, segregation and alarm errors, an

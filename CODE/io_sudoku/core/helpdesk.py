@@ -1,17 +1,20 @@
 """The IO Sudoku Helpdesk: a customer-support assistant (Google Gemini) that EXPLAINS and ADVISES, and nothing else.
 
 It sits OUTSIDE the allocation path, like advisor.py.  What it may do:
-  * read a fixed briefing about the project (KNOWLEDGE) and a short read-only summary of the page you are on;
+  * read a fixed briefing about the project (KNOWLEDGE), a short read-only summary of the project and, when it was
+    opened from one thing (a TQ, the answer box, a cell, a rule, a tag, a revision change), a FOCUS: the facts the
+    page shows about that one thing (core.helpcontext), so the user does not have to explain it;
   * answer questions, explain TQs and rules, suggest how to fix a problem, and word a suggestion or a rule.
 What it can NEVER do (enforced by the code, not just asked of the model):
   * act: the request carries NO tools and NO function declarations, so the model cannot call anything;
   * change anything: its reply is only text shown in the chat.  The allocation, the file, the rules, the answers
-    and the code are changed only by the user through the normal, checked buttons (and a rule still needs a
-    different person's approval);
+    and the code are changed only by the user through the normal, checked buttons (and a rule still has to be
+    verified in the Review Queue);
   * make images or files: only text is accepted back; code blocks, images and HTML are removed from replies;
   * be re-programmed: the personality and the limits (RULES) are fixed here.  The user's words are sent as data
     inside <user_message> tags and can never replace them;
-  * see the whole uploaded file: it gets counts, statuses and question texts, never the MDB itself.
+  * see the whole uploaded file: it gets counts, statuses, question texts and the rows of the one thing in focus,
+    never the MDB itself.
 Any failure (no key, no network, quota, a bad reply) gives a polite message.  Nothing here ever raises.
 """
 from __future__ import annotations
@@ -34,6 +37,7 @@ MODELS = ("gemini-pro-latest", "gemini-3.1-pro-preview", "gemini-3.6-flash", "ge
 TIMEOUT_S = 25
 MAX_MESSAGE_CHARS = 1000
 MAX_REPLY_CHARS = 4000
+MAX_PAGE_CHARS = 10000             # the project summary plus the FOCUS of the conversation
 MAX_TURNS = 12                     # earlier messages sent back with each question
 MAX_MESSAGES_PER_SESSION = 80
 MIN_SECONDS_BETWEEN = 1.0
@@ -53,11 +57,14 @@ WHAT YOU DO
 - Help word a suggested fix, a TQ answer or a rule proposal clearly and politely, and judge if it makes sense.
 - Use ONLY the briefing and the page summary you are given. If something is not in them, say you are not sure and
   tell the user where in the app they can check. Never invent tags, cables, numbers or features.
+- When the page summary starts with a FOCUS, the user opened you from that exact question, answer, cell, rule, tag
+  or change. Answer about it directly, using its details (tags, positions, rules, questions), and never ask the user
+  to explain again what is already in the FOCUS.
 
 WHAT YOU NEVER DO
 - You cannot change anything. You have no tools and no access to the code, the files, the allocation, the rules,
   the answers or the settings. Never say or suggest that you changed, saved, applied, approved or fixed something.
-  The user makes every change with the app's own buttons, and every rule needs a different person's approval.
+  The user makes every change with the app's own buttons, and every rule must be verified in the Review Queue.
 - Never write, edit, review or explain program code, scripts, formulas or commands, and never output code blocks.
   If asked, reply that you only give advice in plain words.
 - Never create images, files, links to download, tables of data for export, or anything but plain sentences
@@ -92,7 +99,8 @@ GLOSSARY = """GLOSSARY
 - Readiness: ISSUE-READY (safe to issue), DRAFT (warnings waiting or inputs changed), BLOCKED (an error, a broken
   rule, a signal set aside, or nothing allocated).
 - Rule pack: the project's adjustable settings and project rules (new columns, constraints). Proposed on the Rules
-  page, approved by a different person with the approver passcode, previewed, then activated.
+  page, verified in the Review Queue with one Verify button (no passcode in this prototype), previewed, then
+  activated. Suggested fixes for TQs are verified the same way.
 - Answer: a value given on the TQ Board for one field of one tag, without editing the file; verified by re-allocating.
 - Pin: fixes a cable to a cabinet and CIOC; the solver still checks every rule.
 - Edit File changes the values of cells that already exist. It cannot add or delete rows: missing rows (for example
@@ -106,16 +114,19 @@ PAGES = """PAGES OF THE APP (sidebar)
 Upload (file, sample data, template, workspace, column mapping) - Edit File (change cells; Undo Last Change; Delete All
 Changes) - Preflight (data quality before solving) - Solve (Run Allocation, readiness, summary boxes, Wired Spares Per
 Controller) - Cabinet Layout (Slot Map, Front & Rear Drawings, All Cabinet Drawings, Why Is It Here?; click a slot to
-check its rules) - Rule Check (pick cells; live log of every rule that applies; Signal Path) - Rule Impact (pick one
-rule or constraint; see every cell, CHARM and signal it affects, met or broken, on a highlighted cabinet map) - TQ Board
-(Sign Off The Warnings with Edit buttons and the arrow for suggested fixes, All Questions with Error / Warning / Info
-filters and page buttons, Copy Questions For An Owner, Answer A Question with Verify, Pin A Cable) - Parts (bill of
+check its rules) - Rule Radar (two tabs: Rule Check - pick cells, live log of every rule that applies, Signal Path;
+Rule Impact - pick one rule or constraint, see every cell, CHARM and signal it affects, met or broken, on a highlighted
+cabinet map) - TQ Board (Sign Off The Warnings with Edit buttons and the arrow for suggested fixes, All Questions with
+Error / Warning / Info filters and page buttons, Copy Questions For An Owner, Answer A Question with Verify, Pin A
+Cable) - Parts (bill of
 materials) - Revision (three tabs: Compare With A New MDB with View In Detail; Revision History with Undo Last Revision
 and Delete; Revision Simulator, which makes a pretend client revision and estimates the rework saved) - Rules (Locked
-Rules, Propose A Rule: Settings, New Columns, Constraints; Review Queue; Suggested Fixes; Preview And Activate; Where It
-Applies) - Files (view and download every output). A search bar at the top jumps to any page or section.
-There is no Health page and no Simulator page any more (the simulator is a tab of Revision); problems in the
-file are the questions on the TQ Board."""
+Rules, Propose A Rule: Settings, New Columns, Constraints; Review Queue with Verify and Reject buttons; Suggested
+Fixes; Preview And Activate; Where It Applies) - Files (view and download every output). A search bar at the top jumps
+to any page or section. "Ask The Helpdesk" buttons next to a TQ, the answer box, a Rule Check cell, a Rule Impact rule,
+Why Is It Here? and a revision change open the Helpdesk about that thing; each topic is its own conversation.
+There is no Health page and no Simulator page any more (the simulator is a tab of Revision), and Rule Check and Rule
+Impact are the two tabs of Rule Radar; problems in the file are the questions on the TQ Board."""
 
 
 @lru_cache(maxsize=1)
@@ -192,7 +203,7 @@ def build_request(system: str, history: list[dict[str, str]], message: str, page
         text = str(turn.get("text") or "")[:MAX_REPLY_CHARS]
         if text:
             contents.append({"role": role, "parts": [{"text": text if role == "model" else f"<user_message>{text}</user_message>"}]})
-    final = f"<page_summary>\n{page[:6000]}\n</page_summary>\n<user_message>\n{message}\n</user_message>"
+    final = f"<page_summary>\n{page[:MAX_PAGE_CHARS]}\n</page_summary>\n<user_message>\n{message}\n</user_message>"
     contents.append({"role": "user", "parts": [{"text": final}]})
     return {"systemInstruction": {"parts": [{"text": system}]}, "contents": contents, "safetySettings": SAFETY,
             "generationConfig": {"temperature": 0.3, "topP": 0.9, "maxOutputTokens": 2048, "candidateCount": 1,
