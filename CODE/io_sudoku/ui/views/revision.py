@@ -9,7 +9,7 @@ import time
 
 import streamlit as st
 
-from io_sudoku.core import helpcontext, readiness as readiness_mod
+from io_sudoku.core import helpcontext, readiness as readiness_mod, revpreview
 from io_sudoku.core.allocio import allocation_bytes, looks_like_allocation, read_allocation
 from io_sudoku.core.pipeline import solve
 from io_sudoku.core.revision import compare, solve_incremental
@@ -240,24 +240,47 @@ KEY_COLUMNS = ("Tag Name", "Tag Status", "IO Type", "Segregation", "Electronic/ 
                "Baseplate", "Channel_No", "CHARM Type", "Field Cable No", "Field Cable Pair", "Revision", "Service Description")
 
 
+def _rework_cards(h) -> list[tuple[str, str]]:
+    """The rework boxes.  A saving is only shown when Rev B really is a revision of Rev A."""
+    hours = revpreview.hours_text
+    share = f"{h.shared:,} of {h.a_tags:,} ({round(100 * (h.share or 0))}%)" if h.shared is not None else "-"
+    if not h.related:
+        return [("Rev A Signals Still In Rev B", share), ("New Work (Added + Deleted)", hours(h.same)),
+                ("Time Saved", "Not a revision" if h.mode != "compare-only" else "Not known"),
+                ("Tags Moved", "-")]
+    saved = hours(h.saved) + (f" · {h.saved_pct}%" if h.saved_pct else "")
+    return [("Rework Keeping Positions", hours(h.keep)), ("Rework From Scratch", hours(h.fresh)),
+            ("Time Saved", saved), ("Tags Moved: Kept / Scratch", f"{h.keep_moved:,} / {h.fresh_moved:,}"),
+            ("Same Either Way", hours(h.same)), ("Rev A Signals Still In Rev B", share)]
+
+
+def _rework_caption(h) -> str:
+    r = h.rates or {}
+    rates = (f"{r.get('moved', 15):g} min per moved tag, {r.get('renamed', 3):g} per renamed, {r.get('added', 10):g} "
+             f"per added and {r.get('deleted', 5):g} per deleted (change them on the Revision Simulator tab)")
+    if not h.related:
+        return (f"An ESTIMATE at {rates}. Keeping positions only saves time when Rev B is a revision of Rev A (at least "
+                f"half of Rev A's signals still in it). These files share too little for that, so only the new work "
+                f"for the added and deleted signals is shown.")
+    return (f"An ESTIMATE at {rates}. Keeping positions = this revision: every signal that is still in Rev B stays in "
+            f"its Rev A slot. From scratch = Rev B allocated again with nothing kept, so many unchanged signals land "
+            f"in new slots and need new drawings and terminations. Same Either Way = the added and deleted signals, "
+            f"which are in both numbers.")
+
+
 def _detail(entry: revlibrary.Entry, prefix: str) -> None:
     """Everything about one revision: the better/worse check, the whole allocation, its questions, its changes,
     and what it was made from (with its files)."""
     chk = entry.check
     show = {"better": st.success, "worse": st.error, "mixed": st.warning}.get(chk.word, st.info)
     h = chk.hours
-    time_line = (f"Rework to adopt it: about **{h.keep:g} h** keeping positions, against {h.fresh:g} h if Rev B were "
-                 f"allocated again from scratch (**{h.saved:g} h saved**).")
+    time_line = "Rework to adopt it: " + chk.rework_line() if h.related else "⚠ " + chk.rework_line()
     show(f"**{chk.headline}**" + ("\n\n" + "\n".join(f"- {md_escape(r)}" for r in chk.reasons) if chk.reasons else "")
          + "\n\n" + time_line)
     summary, rows_tab, questions, changes, inputs = st.tabs(list(DETAIL_TABS))
     with summary:
-        cards = [("Rework Keeping Positions", f"{h.keep:g} h"), ("Rework From Scratch", f"{h.fresh:g} h"),
-                 ("Time Saved", f"{h.saved:g} h"), ("Tags Moved", f"{h.keep_moved:,} vs {h.fresh_moved:,}")]
-        st.markdown(theme.kpi_html(cards), unsafe_allow_html=True)
-        st.caption("Rework is an ESTIMATE from the minutes per moved, renamed, added and deleted tag set on the "
-                   "Revision Simulator tab. Keeping positions = this revision (every surviving tag stays in its Rev A "
-                   "slot). From scratch = Rev B allocated again with nothing kept.")
+        st.markdown(theme.kpi_html(_rework_cards(h)), unsafe_allow_html=True)
+        st.caption(_rework_caption(h))
         st.dataframe(chk.table(), hide_index=True, width="stretch", height=38 + 35 * len(chk.table()))
         c = st.columns(5)
         for col, name in zip(c, CATEGORIES):

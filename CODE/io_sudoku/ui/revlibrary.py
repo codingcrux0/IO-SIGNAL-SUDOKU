@@ -72,7 +72,7 @@ def make_entry(name: str, *, created: str, file_name: str, label: str, source: s
     readiness = getattr(result_b, "readiness", None)
     b = revpreview.measures(getattr(result_b, "rows", []), tqs_b, len(getattr(result_b, "quarantined", []) or []),
                             b_status or getattr(readiness, "status", None))
-    check = revpreview.check(a, b, report, fresh_report, minutes)
+    check = revpreview.check(a, b, report, fresh_report, minutes, rows_a, list(getattr(result_b, "rows", []) or []))
     if a_tqs is not None:
         diff = diff_tqs(list(a_tqs), tqs_b)
         new = {(t.tq_id, t.ref) for t in diff.new}
