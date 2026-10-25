@@ -10,7 +10,7 @@ from typing import Any
 
 from io_sudoku.core import cellcheck
 from io_sudoku.core.constants import BPS_PER_CIOC, CIOCS_PER_CAB, STATUS_ALARM, STATUS_FIELD, STATUS_SLOT, STATUS_WIRED
-from io_sudoku.core.projectrules import all_dupes, covers, judge, rule_outcomes
+from io_sudoku.core.projectrules import all_dupes, column_value, covers, judge, rule_outcomes
 from io_sudoku.core.revision import location
 from io_sudoku.core.textnorm import match_key
 
@@ -73,26 +73,55 @@ def applies_to(template: str, args: dict[str, Any], rows: list[dict[str, Any]],
     return out
 
 
+def value_header(template: str, args: dict[str, Any]) -> str | None:
+    """The heading of the column that holds a project column's values in the 'Where It Applies' table: the column's
+    OWN name ('Voltage (V)', 'Current input'), never a generic word.  None for a rule that only checks."""
+    a = args or {}
+    if template == "project_column":
+        return str(a.get("column") or "Value")
+    if template == "column_rule":
+        return str(a.get("column") or "Value") + (f" ({a['unit']})" if a.get("new") and a.get("unit") else "")
+    return None
+
+
+def _mark(o: Any) -> str:
+    return o.detail if o.ok is None else (("✓ " if o.ok else "✗ ") + o.detail)
+
+
 def table(template: str, args: dict[str, Any], rows: list[dict[str, Any]],
           all_rows: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
-    """One line per covered signal: where it is, its CHARM, and (for a project rule) its result.  `all_rows` = the
-    whole allocation, for a 'no two signals the same' check."""
+    """One line per covered signal: its tag, the project column's value under the column's own name (right after the
+    tag), where it is, its CHARM, and the result of each check ('Checks' for a column rule, 'Check' for an older
+    constraint).  `all_rows` = the whole allocation, for a 'no two signals the same' check."""
     out = []
     rule = {"kind": template, "args": args}
     dupes = all_dupes(rule, all_rows or rows) if template == "column_rule" else {}
+    header = value_header(template, args)
+    reserved = ("Tag", "Status", "Cabinet", "CIOC", "BP", "CH", "CHARM Type", "IO", "Check", "Checks")
+    if header in reserved:
+        header = f"{header} (project column)"
     for r in rows:
         pos = cellcheck.position(r)
-        line = {"Tag": _s(r, "Tag Name") or "-", "Status": _s(r, "Tag Status"), "Cabinet": pos[0] if pos else "-",
-                "CIOC": pos[1] if pos else None, "BP": pos[2] if pos else None, "CH": pos[3] if pos else None,
-                "CHARM Type": _s(r, "CHARM Type"), "IO": _s(r, "IO Type")}
-        if template == "column_rule":
-            line["Result"] = " · ".join(o.detail if o.ok is None else (("✓ " if o.ok else "✗ ") + o.detail)
-                                        for _, o, _ in rule_outcomes(rule, r, dupes))
-        elif template in ("project_column", "expect_hardware", "require_filled"):
-            o = judge(rule, r)
-            line["Result"] = o.detail if o.ok is None else (("✓ " if o.ok else "✗ ") + o.detail)
+        line: dict[str, Any] = {"Tag": _s(r, "Tag Name") or "-"}
+        if template == "project_column":
+            line[header] = str((args or {}).get("value") or "")
+        elif template == "column_rule":
+            line[header] = column_value(rule, r)[0]
+        line.update({"Status": _s(r, "Tag Status"), "Cabinet": pos[0] if pos else "-",
+                     "CIOC": pos[1] if pos else None, "BP": pos[2] if pos else None, "CH": pos[3] if pos else None,
+                     "CHARM Type": _s(r, "CHARM Type"), "IO": _s(r, "IO Type")})
+        if template == "column_rule" and (args or {}).get("checks"):
+            line["Checks"] = " · ".join(_mark(o) for _, o, _ in rule_outcomes(rule, r, dupes) if o.ok is not None
+                                        or "skipped" in o.detail) or "-"
+        elif template in ("expect_hardware", "require_filled"):
+            line["Check"] = _mark(judge(rule, r))
         out.append(line)
     return out
+
+
+def broken(lines: list[dict[str, Any]]) -> int:
+    """How many lines of table() fail a check."""
+    return sum(1 for x in lines if "✗" in str(x.get("Checks", "")) + str(x.get("Check", "")))
 
 
 def signal_changes(before: list[dict[str, Any]], after: list[dict[str, Any]], limit: int = 2000) -> list[dict[str, Any]]:

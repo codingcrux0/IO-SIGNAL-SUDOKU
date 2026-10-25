@@ -16,16 +16,16 @@ from io_sudoku.core import readiness as readiness_mod, reviewlog
 from io_sudoku.core.overrides import overrides_to_json
 from io_sudoku.core.rulepack import default_pack, pack_hash
 from io_sudoku.samples import sample_mdb_bytes
-from io_sudoku.ui import editing, history, ui_logic
+from io_sudoku.ui import editing, filerevs, history, ui_logic
 from io_sudoku.ui.nav import link
 
-VIEWS = ("Upload", "Edit File", "Preflight", "Solve", "Cabinet Layout", "Rule Radar", "TQ Board", "Parts", "Revision",
+VIEWS = ("Upload", "Edit File", "Preflight", "Solve", "Cabinet Layout", "Audit", "TQ Board", "Parts", "Revision",
          "Rules", "Files")
 NEEDS_FILE = ("Edit File",)                  # views that are greyed out until a file is uploaded
 CAB_TAB_KEY = "cab_tab"                      # which tab of Cabinet Layout is open
 REV_TAB_KEY = "rev_tab"                      # which tab of Revision is open
 SIM_TAB = "Revision Simulator"
-RULE_TAB_KEY = "rule_tab"                    # which tab of Rule Radar is open
+RULE_TAB_KEY = "rule_tab"                    # which tab of Audit is open
 CHECK_TAB, IMPACT_TAB = "Rule Check", "Rule Impact"
 RULE_TABS = (CHECK_TAB, IMPACT_TAB)
 TQ_TAB_KEY = "tq_tab"                        # which tab of the TQ Board is open
@@ -33,7 +33,7 @@ QUESTIONS_TAB, REVIEWED_TAB = "Questions And Sign-Off", "↺ Reviewed Before"
 TQ_TABS = (QUESTIONS_TAB, REVIEWED_TAB)
 # Old links keep working: a page that became a tab opens that tab; a removed page (Health) opens Upload.
 OLD_VIEW_NAMES = {"Downloads": "Files", "Grid": "Cabinet Layout", "Drawings": "Cabinet Layout", "Simulator": "Revision",
-                  "Rule Check": "Rule Radar", "Rule Impact": "Rule Radar"}
+                  "Rule Check": "Audit", "Rule Impact": "Audit", "Rule Radar": "Audit"}
 OLD_VIEW_TABS = {"Grid": (CAB_TAB_KEY, "Slot Map"), "Drawings": (CAB_TAB_KEY, "Front & Rear Drawings"),
                  "Simulator": (REV_TAB_KEY, SIM_TAB), "Rule Check": (RULE_TAB_KEY, CHECK_TAB),
                  "Rule Impact": (RULE_TAB_KEY, IMPACT_TAB)}
@@ -48,7 +48,7 @@ KEYS = {"mdb_bytes": None, "mdb_name": None, "mdb_sha": None, "template_bytes": 
         "history": [], "edit_target": None, "edit_return": None, "mdb_original": None, "edit_log": [], "scroll_to": None,
         "rc_cells": [], "tq_notes": {}, "suggestions": [], "chat": None, "chats": {}, "answer_check": None, "confirm": None,
         "inputs_by_key": {}, "blobs": {}, "ri_pick": None, "review_log": [], "edit_tq": None, "rev_preview": None,
-        "rev_library": [],
+        "rev_library": [], "file_revs": [],
         "sim_pct": 5, "sim_seed": 1, "sim_moved": 15.0, "sim_renamed": 3.0, "sim_added": 10.0, "sim_deleted": 5.0}
 STALE_REASON = "Your inputs changed after this allocation (for example the file was edited). Re-allocate to check them."
 
@@ -108,14 +108,78 @@ def inputs_key() -> str:
         s["rev_label"]]))
 
 
-def _set_mdb(data: bytes, name: str) -> None:
+def _set_mdb(data: bytes, name: str, kind: str | None = "upload") -> None:
+    """A new input file.  `kind` saves it as a file revision ('upload', 'sample'; None = do not save it)."""
     s = st.session_state
     sha = ui_logic.sha256_hex(data)
     if sha != s["mdb_sha"]:
         s.update(mdb_bytes=data, mdb_name=name, mdb_sha=sha, column_overrides={}, impact=None, rev_a_rows=None,
                  signoffs={}, mdb_original=(data, name), edit_log=[], edit_target=None, sim=None, sim_sweep=None,
                  rc_cells=[], ri_pick=None)          # cells and rules picked in the old file are not in the new one
+        if kind:
+            save_file_rev(kind)
         mark_stale()
+
+
+# ------------------------------------------------------------------ saved file revisions (ui.filerevs)
+def upload_sha() -> str:
+    original = st.session_state.get("mdb_original")
+    return ui_logic.sha256_hex(original[0]) if original else (st.session_state.get("mdb_sha") or "")
+
+
+def save_file_rev(kind: str, note: str = "", data: bytes | None = None, file_name: str | None = None,
+                  origin_sha: str | None = None) -> filerevs.FileRev | None:
+    """Keep a file version as a revision (the current input when `data` is None).  The same bytes are kept once."""
+    s = st.session_state
+    data = s["mdb_bytes"] if data is None else data
+    if not data:
+        return None
+    sha = ui_logic.sha256_hex(data)
+    own = data is s["mdb_bytes"] or sha == s.get("mdb_sha")
+    s["blobs"] = {**s["blobs"], sha: data}
+    if own and s.get("mdb_original"):
+        s["blobs"][upload_sha()] = s["mdb_original"][0]
+    s["file_revs"], rev = filerevs.add(
+        s["file_revs"], kind=kind, file_name=file_name or s["mdb_name"] or "MDB", sha=sha,
+        origin_sha=origin_sha or (upload_sha() if own else sha), created=time.strftime("%Y-%m-%d %H:%M:%S"), note=note,
+        edit_log=s["edit_log"] if own else [])
+    if own:
+        s["file_rev_pick"] = rev.id
+    return rev
+
+
+def current_file_rev() -> filerevs.FileRev | None:
+    s = st.session_state
+    return next((r for r in s.get("file_revs") or [] if r.sha == s.get("mdb_sha")), None)
+
+
+def use_file_rev(rev_id: int | None = None) -> None:
+    """Make a saved file revision the input again (the dropdown's 'Use This File').  The allocation is out of date
+    (DRAFT) until you re-allocate; nothing else changes."""
+    s = st.session_state
+    rev_id = s.get("file_rev_pick") if rev_id is None else rev_id
+    rev = next((r for r in s.get("file_revs") or [] if r.id == rev_id), None)
+    where = "Saved File Revisions"
+    if rev is None:
+        flash("error", "Pick a saved file revision first.", where)
+        return
+    data = s["blobs"].get(rev.sha)
+    if data is None:
+        flash("error", "That file is no longer kept in this session, so it cannot be used.", where)
+        return
+    if rev.sha == s.get("mdb_sha"):
+        flash("info", f"You are already working on {rev.name}.", where)
+        return
+    if rev.origin_sha == upload_sha() and s.get("mdb_original"):       # another version of the same upload
+        s.update(mdb_bytes=data, mdb_sha=rev.sha, mdb_name=rev.file_name, edit_target=None)
+        mark_stale()
+    else:                                                                  # another file altogether
+        _set_mdb(data, rev.file_name, kind=None)
+        s["mdb_original"] = (s["blobs"].get(rev.origin_sha) or data, rev.file_name)
+    s["edit_log"] = [dict(x) for x in rev.edit_log]
+    s["file_rev_pick"] = rev.id
+    flash("success", f"Now using {rev.name} ({rev.file_name}). The allocation is out of date until you press "
+                     "Re-allocate.", where)
 
 
 def replace_mdb(data: bytes) -> None:
@@ -294,7 +358,7 @@ def _forget_unused() -> None:
     s = st.session_state
     keys = {x.solve_key for x in s["history"]}
     s["inputs_by_key"] = {k: v for k, v in s["inputs_by_key"].items() if k in keys}
-    wanted = {v["mdb_sha"] for v in s["inputs_by_key"].values()} | {s["mdb_sha"]}
+    wanted = {v["mdb_sha"] for v in s["inputs_by_key"].values()} | {s["mdb_sha"]} | filerevs.shas(s.get("file_revs") or [])
     s["blobs"] = {k: v for k, v in s["blobs"].items() if k in wanted}
 
 
@@ -453,8 +517,9 @@ def leave_editor() -> None:
     s["scroll_to"] = "__top__"                   # the saved message and the Re-allocate button are at the top
 
 
-def apply_cell_edits(edits: list[editing.CellEdit], go_back: bool) -> None:
-    """Write the changed cells into the input file, log them, mark the result out of date."""
+def apply_cell_edits(edits: list[editing.CellEdit], go_back: bool, kind: str = "edit", note: str = "") -> None:
+    """Write the changed cells into the input file, log them, save the new file as a file revision, mark the result
+    out of date."""
     s = st.session_state
     edits = [e for e in edits if not editing.same(e.old, e.new)]
     if not edits:
@@ -473,13 +538,14 @@ def apply_cell_edits(edits: list[editing.CellEdit], go_back: bool) -> None:
     s["edit_log"] = s["edit_log"] + [{"Sheet": e.sheet, "Row": e.row, "Column": e.header, "Old Value": "" if e.old is None else str(e.old),
                                       "New Value": "" if e.new is None else str(e.new), "Time": stamp, "_col": e.col}
                                      for e in edits]
+    rev = save_file_rev(kind, filerevs.change_note(edits) if kind == "edit" else note)
     if s.get("edit_tq"):
         tq_id, ref = s["edit_tq"]
         note_review(tq_id, ref, "edited", "; ".join(f"row {e.row} {e.header}: '{'' if e.old is None else e.old}' → "
                                                    f"'{'' if e.new is None else e.new}'" for e in edits[:6]))
     where = f"row {edits[0].row}, “{edits[0].header}”" if len(edits) == 1 else f"{len(edits)} cells"
-    flash("success", f"Saved: {where}. The allocation is out of date until you press Re-allocate.",
-          "" if go_back else "Find A Cell")
+    flash("success", f"Saved: {where}, as the file revision “{rev.name if rev else 'Edit'}”. The allocation is out of "
+                     "date until you press Re-allocate.", "" if go_back else "Find A Cell")
     if go_back:
         leave_editor()
 
@@ -495,6 +561,7 @@ def undo_all_edits() -> None:
     if original:
         replace_mdb(original[0])
         s["edit_log"] = []
+        save_file_rev("edit")                    # the upload is already saved: this only selects it
         flash("success", "Every change was deleted: the file is back to the one you uploaded.", "Your Changes")
 
 
@@ -523,6 +590,7 @@ def undo_last_edit() -> None:
         return
     replace_mdb(data)
     s["edit_log"] = s["edit_log"][:-1]
+    save_file_rev("edit", f"undo of row {last['Row']} “{last['Column']}”")
     flash("success", f"Undone: row {last['Row']}, “{last['Column']}” is “{old or '(empty)'}” again.", "Your Changes")
 
 
@@ -542,7 +610,7 @@ def go_to(view: str, tab: str | None = None) -> None:
 
 
 def on_sample() -> None:
-    _set_mdb(sample_mdb_bytes(), SAMPLE_NAME)
+    _set_mdb(sample_mdb_bytes(), SAMPLE_NAME, kind="sample")
     on_solve()
 
 

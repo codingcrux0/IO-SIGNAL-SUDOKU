@@ -153,7 +153,7 @@ def test_where_a_rule_applies():
     assert wired and all(r["Tag Status"] == "Wired Spare" for r in wired)
     lines = rulescope.table("expect_hardware", {"match_column": "IO Type", "match_text": "AIR", "charm_type": "SE4303T01"},
                             rulescope.applies_to("expect_hardware", {"match_column": "IO Type", "match_text": "AIR"}, rows))
-    assert lines and all(x["Result"][0] in "✓✗" for x in lines)
+    assert lines and all(x["Check"][0] in "✓✗" for x in lines)
     assert rulescope.signal_changes(rows, rows) == []
     moved = [dict(r) for r in rows]
     moved[20]["CHARM Type"] = "SE0000"
@@ -179,7 +179,7 @@ def test_clicking_a_slot_opens_rule_check_with_its_log():
     at = _app("Cabinet Layout")
     sid = cellcheck.slot_id(next(r for r in at.session_state["result"].rows if r["Tag Status"] == "Field"))
     at.text_input(key="cellpick_box").set_value(f"{sid}@123").run()
-    assert at.session_state["view"] == "Rule Radar" and at.session_state["rule_tab"] == "Rule Check"
+    assert at.session_state["view"] == "Audit" and at.session_state["rule_tab"] == "Rule Check"
     assert at.session_state["rc_cells"][0] == sid
     assert not at.exception, [e.value for e in at.exception]
     assert any("met" in m.value and "broken" in m.value for m in at.markdown)

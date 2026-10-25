@@ -43,7 +43,7 @@ def test_rule_proposal_and_verify_flow():
     at.selectbox(key="rule_tpl").set_value("high_current_keyword")
     at.run()
     at.text_input(key="rf_high_current_keyword_keyword").set_value("psv")
-    next(b for b in at.button if b.label == "Propose Rule").click().run()
+    next(b for b in at.button if b.label == "Propose Setting").click().run()
     assert not at.exception
     (p,) = at.session_state["proposals"]
     assert p.status == "pending" and "psv" in p.statement

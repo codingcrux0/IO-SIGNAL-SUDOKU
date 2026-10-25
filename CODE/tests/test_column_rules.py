@@ -225,7 +225,7 @@ def test_edit_and_remove_an_active_column():
     at = _rules_app()
     rule = _approved(_voltage())
     at.session_state["pack"] = rc.apply_approved(default_pack(), [rule])
-    at.session_state["rule_group"] = "Settings"
+    at.session_state["rule_group"] = "Add A Signal"
     at.run()
     at.button(key="active_edit_0").click().run()
     assert at.session_state["rule_group"] == "Columns And Checks" and at.session_state["cb_target"] == "project:Voltage"

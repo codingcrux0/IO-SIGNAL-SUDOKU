@@ -18,16 +18,25 @@ from io_sudoku.core.pipeline import solve
 from io_sudoku.core.projectrules import project_columns
 from io_sudoku.core.rulepack import LOCKED_RULES, pack_from_dict, pack_hash, pack_to_dict, validate_pack
 from io_sudoku.ui import rulescope, state, ui_logic
-from io_sudoku.ui.views import columns
+from io_sudoku.ui.views import addsignal, columns
 from io_sudoku.ui.views._common import ask_first, heading, md_escape
 
-GROUPS = {"Settings": [k for k in rc.TEMPLATES if k not in rc.PROJECT_TEMPLATES], columns.GROUP: []}
-GROUP_HELP = ("Settings change a project value (spare %, an IO-type alias, a cabinet ...). Columns And Checks is "
-              "one form for one column: make a new project column (for example Voltage), give each signal its value "
-              "(type them per signal, paste them, or fill many at once), and add the checks the values must pass "
-              "(for example at most 24 V), each an error or a warning. Checks can also be put on a column of the "
-              "allocation itself. Project columns are shown in the app and never written into the locked 76-column "
-              "allocation. None of them can move a signal.")
+SETTINGS = [k for k in rc.TEMPLATES if k not in rc.PROJECT_TEMPLATES]
+GROUPS = {columns.GROUP: [], addsignal.GROUP: []}
+GROUP_HELP = ("Columns And Checks is one form for one column: make a new project column (for example Voltage), give "
+              "each signal its value (type them per signal, paste them, or fill many at once), and add the checks the "
+              "values must pass (for example at most 24 V), each an error or a warning. Checks can also be put on a "
+              "column of the allocation itself. Project columns are shown in the app and never written into the locked "
+              "76-column allocation, and they never move a signal. Add A Signal puts a new signal into your file "
+              "and opens it on Edit File. Engineering Settings (at the bottom, closed) change a project number such "
+              "as the spare percentage.")
+SETTINGS_TITLE = "Engineering Settings (advanced)"
+SETTINGS_HELP = ("These change a number or a name the solver works with, for the whole project: the wired-spare "
+                 "percentage per controller, the future space kept free in each cabinet, the empty baseplates at the "
+                 "end, an extra cabinet for a room, a new name for an IO type, a segregation code, an instrument's "
+                 "hardware, or a word that marks high-current loads. Unlike a project column, a setting CAN move "
+                 "signals, so it is proposed, verified in the Review Queue, previewed and activated like any rule. "
+                 "Most projects never need to change them.")
 # the text fields of a Settings rule that are about values in the allocation get a dropdown of those values
 PICK_FROM = {("instrument_profile", "instrument"): "Instrument type", ("segregation_family", "code"): "Segregation"}
 ARG_LABELS = {"io": "IO Type", "match_column": "Look At Column", "match_text": "That Contains", "charm_type": "Must Use CHARM",
@@ -84,7 +93,7 @@ def _where_it_applies(template: str, args: dict, key: str) -> None:
         return
     rows = _covered(template, args)
     lines = rulescope.table(template, args, rows, st.session_state["result"].rows)
-    broken = sum(1 for x in lines if "✗" in str(x.get("Result", "")))
+    broken = rulescope.broken(lines)
     st.caption(f"{len(lines):,} signals · {rulescope.scope_text(template, args)}"
                + (f" · {broken:,} break it" if broken else "") + (" · the first 500 are listed" if len(lines) >= rulescope.MAX_ROWS else ""))
     if lines:
@@ -269,19 +278,28 @@ def _wording(template: str, spec: dict) -> str:
 def _propose_form() -> None:
     s = st.session_state
     heading("Propose A Rule", GROUP_HELP)
-    if s.get("rule_group") not in GROUPS:
-        s["rule_group"] = "Settings"
+    if s.get("rule_group") not in GROUPS:          # pressing the chosen button again clears it: keep the last
+        s["rule_group"] = s.get("rule_group_last") if s.get("rule_group_last") in GROUPS else columns.GROUP
+    s["rule_group_last"] = s["rule_group"]
     a, b = st.columns([1, 1.4], vertical_alignment="bottom")
     a.text_input("Your Name", key="rule_author", autocomplete="off", placeholder="Who is proposing this?…")
     with b:
         st.segmented_control("Kind Of Rule", list(GROUPS), key="rule_group", label_visibility="collapsed")
-    group = s.get("rule_group") or "Settings"
-    if group == columns.GROUP:
+    if s["rule_group"] == columns.GROUP:
         with st.container(border=True, key="column_form_box"):
             columns.render()
-        return
+    else:
+        with st.container(border=True, key="add_signal_box"):
+            addsignal.render()
+    with st.expander(SETTINGS_TITLE, icon=":material/tune:"):
+        st.caption(SETTINGS_HELP)
+        _settings_form()
+
+
+def _settings_form() -> None:
+    s = st.session_state
     catalogue = {t["key"]: t for t in rc.template_catalogue(_rooms())}
-    keys = [k for k in GROUPS["Settings"] if k in catalogue]
+    keys = [k for k in SETTINGS if k in catalogue]
     if s.get("rule_tpl") not in keys:
         s["rule_tpl"] = keys[0]
     with st.container(border=True, key="rule_form_box"):
@@ -309,7 +327,8 @@ def _propose_form() -> None:
             if all(v not in (None, "") for v in args.values()):
                 st.caption(f"Right now this rule would cover {len(_covered(template, args)):,} signals "
                            f"({rulescope.scope_text(template, args)}).")
-        st.button("Propose Rule", key="rule_propose", type="primary", on_click=_propose, args=(template,))
+        st.button("Propose Setting", key="rule_propose", type="primary", on_click=_propose, args=(template,),
+                  help="It goes to the Review Queue below; it is used only after Verify and Preview And Activate.")
 
 
 def _status(status: str) -> str:

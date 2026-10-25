@@ -11,8 +11,8 @@ from io_sudoku.ui.views import (assistant, cabinets, downloads, edit, parts, pre
                                 ruleradar, rules, solve, tq, upload)
 
 VIEW_MODULES = {"Upload": upload, "Edit File": edit, "Preflight": preflight, "Solve": solve, "Cabinet Layout": cabinets,
-                "Rule Radar": ruleradar, "TQ Board": tq, "Parts": parts, "Revision": revision, "Rules": rules,
-                "Files": downloads}   # the Simulator is a tab of Revision; Rule Check and Rule Impact are tabs of Rule Radar
+                "Audit": ruleradar, "TQ Board": tq, "Parts": parts, "Revision": revision, "Rules": rules,
+                "Files": downloads}   # the Simulator is a tab of Revision; Rule Check and Rule Impact are tabs of Audit
 
 
 def main() -> None:

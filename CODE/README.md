@@ -36,7 +36,10 @@ Moving around and fixing things:
   and warning on the TQ Board) opens this page at the exact cell and brings you back when you save. A question about
   a whole cable lists every row of that cable; one about a whole cabinet opens that cabinet; one about a column opens
   the column mapping. Changes are listed, the last one can be undone, and all can be deleted (both ask first).
-  Searches for cells (Edit File, Rule Radar's Rule Check, Why Is It Here?, the file viewer) are **case-sensitive**; the search bar
+  Every Save is kept as a **saved file revision**. **Saved File Revisions** (on Upload and Edit File) is a dropdown of
+  every version of the input file in this session: the upload, each edited version, each added signal, a suggested
+  fixed file you used, and each Rev B MDB compared; **Use This File** works on any of them again.
+  Searches for cells (Edit File, Audit's Rule Check, Why Is It Here?, the file viewer) are **case-sensitive**; the search bar
   and the TQ search are not.
 - **TQ Board**: filter the sign-off box (Errors, Waiting, Signed Off, Problem) and the question list (coloured
   Error / Warning / Info buttons), with classic page buttons `‹ 1 2 3 … 9 ›` (press **…** to type a page). The **▸**
@@ -62,7 +65,7 @@ Moving around and fixing things:
   is its own conversation: another question starts a fresh chat, and the **Conversation** list takes you back to an
   earlier one with only its own messages. To switch it on, add the secret `GEMINI_API_KEY` (locally in `.streamlit/secrets.toml`,
   which git ignores; on Streamlit Cloud under **Settings → Secrets**).
-- **Rule Radar** has two tabs, **Rule Check** and **Rule Impact**.
+- **Audit** (it used to be called Rule Radar; old links still work) has two tabs, **Rule Check** and **Rule Impact**.
 - **Rule Check**: pick any cells (or click a slot or drawing cell on Cabinet Layout) and see a live log of every rule
   and constraint that applies to each: ✓ met, ✗ broken, ▲ to check, plus answers, pins and the solver's decisions.
   Point at **Signal Path** for the way from the field device to the controller.
@@ -83,7 +86,17 @@ Moving around and fixing things:
   scratch, and IO Sudoku keeping unchanged tags in place. It shows the tags moved, the estimated rework hours (they
   update as you change the minutes per change), a chart of where the hours go, the moved tags, and **Run For Every
   Size** (1-20%). Download the results or the pretend revision itself to try on Compare With A New MDB.
-- Problems in the file are the questions on the **TQ Board** (Preflight shows the data quality score only). The
+- **Preflight → Suggested Fixed File**: a repaired copy of a messy file, made by fixed rules (no AI, no guessing).
+  ✔ fixes only change how a value is written (spellings the solver already reads, your own column choices, exact
+  copies of a row). 🔎 fixes are worked out from the file with unanimous evidence: a column recognised by what it
+  holds, blanks filled from a second column with the same data, a cable's room or size taken from its other rows, an
+  IO type from at least 3 signals of the same instrument and signal type that all agree, and a cable size smaller
+  than a pair it uses. It shows before → after (readiness, errors, warnings, held back, placed), a switch per kind of
+  fix, a scroll box explaining every change, and what still needs a person and why (tags, cable and pair numbers, IS
+  signals ... are never guessed). Both files are allocated by the real solver; if the suggestion would place fewer
+  signals or add errors, its 🔎 fixes are dropped. **Use The Suggested File** saves it as a file revision; columns
+  the allocation does not read can be turned into project columns.
+- Problems in the file are the questions on the **TQ Board**. The
   assumptions the tool made are on **Solve → Assumptions Used In This Run** (with where each one comes from and who
   should confirm it) and in the downloaded TQ register and summary.
 - **Revision → Compare With A New MDB**: each count has **View In Detail**; pick a signal to see every column that
@@ -93,10 +106,19 @@ Moving around and fixing things:
   or worse than the allocation you have now (errors, set aside, warnings, cabinets, readiness), the rework hours
   keeping positions versus allocating again from scratch, the whole allocation, its questions (new, resolved, and
   items you reviewed before) and its changes. **Save This Revision** (with a name) or **Discard**.
-- **Revision → Revision Library**: every saved revision by name; click a name to see all its data again, download its
+- Every place where a revision is picked is a dropdown: Rev A (current result, **a saved revision**, a workbook or a
+  workspace), Rev B (upload, or **a saved file revision**), the Revision Library, and Audit's Rev B choice.
+- **Revision → Revision Library**: every saved revision by name; pick one to see all its data again, download its
   allocation and impact report, rename or delete it.
-- **Rules**: propose **Settings** (their text fields list the values really in the allocation, with how many signals
-  have each, and say how many signals the rule would cover) or **Columns And Checks**, one form for one column:
+- **Rules → Add A Signal**: a signal that arrives later. Give its basic facts (tag, IO type, room, cable, pair, size,
+  segregation, instrument, signal type, service), each a dropdown of the values your file already uses; picking a
+  cable fills in its room, size and next free pair. The row is added to your file (saved as a file revision) and
+  opens on Edit File to fill in every other column.
+- **Rules → Engineering Settings** (closed at the bottom of Propose A Rule): spare %, future space, end baseplates,
+  an extra cabinet, IO type names, segregation codes, instrument hardware, high-current words. They can move signals,
+  so they go through the Review Queue like rules.
+- **Rules → Columns And Checks**, one form for one column (the value column is named after your column, in the form
+  and in **Where It Applies**):
   1. **Which column**: a new project column (name, text or number, unit such as V), an active project column to
      change, or a column of the allocation itself (checks only).
   2. **Values**: type a value per signal in the table (find signals, then give all the shown ones one value at

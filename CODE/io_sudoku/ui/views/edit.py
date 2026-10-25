@@ -13,6 +13,7 @@ import streamlit as st
 
 from io_sudoku.ui import editing, state, ui_logic
 from io_sudoku.ui.nav import link
+from io_sudoku.ui.views import _filerev
 from io_sudoku.ui.views._common import allocate_button, ask_first, heading, md_escape
 
 
@@ -29,12 +30,14 @@ def render() -> None:
         return
     back = s.get("edit_return")
     top_left, top_right = st.columns([3, 2], vertical_alignment="center")
-    top_left.caption(f"Editing **{md_escape(s['mdb_name'] or 'your file')}**. Changes go into this session's copy of the "
-                     f"file; download it under {link('Your Changes', 'Edit File', 'Your Changes')} to keep it. "
-                     "After a change the allocation is DRAFT until "
-                     "you re-allocate.")
+    top_left.caption(f"Editing **{md_escape(s['mdb_name'] or 'your file')}**. Every Save keeps the new file as a saved "
+                     f"file revision (pick any of them below); download it under "
+                     f"{link('Your Changes', 'Edit File', 'Your Changes')} to keep it. "
+                     "After a change the allocation is DRAFT until you re-allocate.")
     if back and back != "Edit File":
         top_right.button(f"← Back To {back}", key="edit_back", on_click=state.leave_editor)
+    if s.get("edit_target") is None:
+        _filerev.picker("edit")
     sheets = ui_logic.editable_sheets(s["mdb_bytes"])
     if not sheets:
         st.warning("This file cannot be shown as a table, so it cannot be edited here. Fix it in Excel and upload it again.")

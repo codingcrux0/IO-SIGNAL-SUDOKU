@@ -6,6 +6,7 @@ import streamlit as st
 from io_sudoku.core.columnmap import load_aliases, map_columns, missing_mandatory
 from io_sudoku.ui import state, ui_logic
 from io_sudoku.ui.nav import link
+from io_sudoku.ui.views import _filerev
 from io_sudoku.ui.views._common import allocate_button
 from io_sudoku.ui.views._viewer import file_viewer
 
@@ -50,6 +51,14 @@ def render() -> None:
                 "their columns are repaired and listed as TQs. To keep the old positions instead, use it as Rev A on "
                 f"the {link('Revision', 'Revision', 'Compare With A New MDB')} view.")
     allocate_button("solve_upload")
+    result = s["result"]
+    errors = sum(1 for t in (result.tqs if result is not None else []) if t.severity == "error")
+    if errors:
+        st.info(f"This file has {errors:,} error(s). The "
+                f"{link('Suggested Fixed File', 'Preflight', 'Suggested Fixed File')} on Preflight fixes what the file "
+                "itself can answer (no AI, no guessing) and explains every change; you choose whether to use it.",
+                icon=":material/auto_fix_high:")
+    _filerev.picker("upload")
     if s["ui_error"]:
         st.error(s["ui_error"])
     if s["edit_log"]:

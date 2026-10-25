@@ -22,7 +22,8 @@ from io_sudoku.ui.nav import link, link_to
 from io_sudoku.ui.views import assistant
 from io_sudoku.ui.views._common import ask_first, file_card, heading, md_escape, stale_banner
 
-SOURCES = ("Current Result", "Allocation Workbook (.xlsx)", "Workspace (.zip)")
+SOURCES = ("Current Result", "Allocation Workbook (.xlsx)", "Workspace (.zip)", "A Saved Revision (Revision History)")
+B_SOURCES = ("Upload A New MDB", "A Saved File Revision")
 
 
 def _loc(loc) -> str:
@@ -36,6 +37,9 @@ def _read_inputs():
     rows_a = None
     if source == SOURCES[0]:
         rows_a = s["result"].rows if s["result"] is not None else None
+    elif source == SOURCES[3]:
+        snap = next((x for x in s["history"] if x.id == s.get("rev_a_snap")), None)
+        rows_a = snap.rows() if snap is not None else None
     elif up_a is not None:
         if source == SOURCES[2]:
             ws, why = import_workspace(up_a.getvalue())
@@ -49,10 +53,17 @@ def _read_inputs():
         state.flash("error", "Rev A could not be read as an IO Allocation. Pick the 76-column workbook, a workspace, or solve first.",
                     COMPARE_NEW)
         return None
+    label = (s.get("rev_b_label") or "B").strip() or "B"
+    if s.get("rev_b_source") == B_SOURCES[1]:
+        rev = next((r for r in s["file_revs"] if r.id == s.get("rev_b_file")), None)
+        data = s["blobs"].get(rev.sha) if rev is not None else None
+        if data is None:
+            state.flash("error", "Pick the saved file to use as Rev B first.", COMPARE_NEW)
+            return None
+        return rows_a, data, rev.file_name, label
     if up_b is None:
         state.flash("error", "Upload the new MDB (Rev B) first.", COMPARE_NEW)
         return None
-    label = (s.get("rev_b_label") or "B").strip() or "B"
     return rows_a, up_b.getvalue(), getattr(up_b, "name", "Rev B MDB"), label
 
 
@@ -70,6 +81,7 @@ def _adopt(rows_a, data_b: bytes, name_b: str, label: str, result_b, report) -> 
                                          + overrides_to_json(s["overrides"]).encode()))
     s["rev_a_tqs"] = list(s["result"].tqs) if (s.get("rev_a_source") == SOURCES[0] and s["result"] is not None) else None
     state.remember(result_b, f"Revision compare (Rev {label})", name_b, ui_logic.sha256_hex(data_b), s["rev_key"])
+    state.save_file_rev("revision", f"compared as Rev {label}", data=data_b, file_name=name_b)
 
 
 def _entry(rows_a, data_b: bytes, name_b: str, label: str, result_b, report, name: str = "") -> revlibrary.Entry:
@@ -317,7 +329,7 @@ def _library() -> None:
     s = st.session_state
     state.show_flash(LIBRARY)
     st.caption("Every revision you saved: from the preview of Check Allocation First (Save This Revision), and every "
-               "Compare Revisions. Click a name to see everything about that revision: whether it was better or worse, "
+               "Compare Revisions. Pick one in the dropdown to see everything about that revision: whether it was better or worse, "
                "the rework estimate, the whole allocation, its questions, its changes and what it was made from. The "
                "library lasts for this browser session.")
     lib: list[revlibrary.Entry] = s["rev_library"]
@@ -328,8 +340,9 @@ def _library() -> None:
     by_id = {e.id: e for e in lib}
     if s.get("lib_pick") not in by_id:
         s["lib_pick"] = lib[-1].id
-    st.pills(f"Saved Revisions ({len(lib):,})", [e.id for e in lib], key="lib_pick", format_func=lambda i: by_id[i].name,
-             help="Click a name to open that revision.")
+    st.selectbox(f"Saved Revisions ({len(lib):,})", [e.id for e in reversed(lib)], key="lib_pick",
+                 format_func=lambda i: f"{by_id[i].name} · saved {by_id[i].created}",
+                 help="Pick a revision to open it (newest first).")
     entry = by_id.get(s.get("lib_pick")) or lib[-1]
     with st.container(border=True, key="lib_entry"):
         st.markdown(f"#### {md_escape(entry.name)}  \n<small>Saved {md_escape(entry.created)} · Rev B "
@@ -391,12 +404,43 @@ def render() -> None:
 def _compare_new() -> None:
     s = st.session_state
     state.show_flash(COMPARE_NEW)
-    st.radio("Rev A Comes From", SOURCES, key="rev_a_source", horizontal=True)
-    if s.get("rev_a_source") != SOURCES[0]:
-        st.file_uploader("Rev A File", type=["xlsx", "zip"], key="reva_uploader")
-    elif s["result"] is None:
-        st.info("There is no current result yet. Run an allocation first, or choose another Rev A source.")
-    st.file_uploader("Rev B MDB (.xlsx or .csv)", type=["xlsx", "xlsm", "csv"], key="revb_uploader")
+    if s.get("rev_a_source") not in SOURCES:
+        s["rev_a_source"] = SOURCES[0]
+    if s.get("rev_b_source") not in B_SOURCES:
+        s["rev_b_source"] = B_SOURCES[0]
+    a_col, b_col = st.columns(2)
+    with a_col:
+        st.selectbox("Rev A Comes From", SOURCES, key="rev_a_source",
+                     help="Rev A is the allocation you compare against: the one on screen, a saved revision of this "
+                          "session, an allocation workbook or a workspace.")
+        if s["rev_a_source"] == SOURCES[3]:
+            past = {x.id: x for x in s["history"]}
+            if not past:
+                st.info("No saved revision yet. Run an allocation first.")
+            else:
+                if s.get("rev_a_snap") not in past:
+                    s["rev_a_snap"] = list(past)[-1]
+                st.selectbox("Saved Revision To Use As Rev A", list(reversed(list(past))), key="rev_a_snap",
+                             format_func=lambda i: past[i].label, help="Every allocation of this session, newest first.")
+        elif s["rev_a_source"] != SOURCES[0]:
+            st.file_uploader("Rev A File", type=["xlsx", "zip"], key="reva_uploader")
+        elif s["result"] is None:
+            st.info("There is no current result yet. Run an allocation first, or choose another Rev A source.")
+    with b_col:
+        st.selectbox("Rev B Comes From", B_SOURCES, key="rev_b_source",
+                     help="Rev B is the new MDB: upload it, or pick one of the saved file revisions of this session "
+                          "(the uploaded file, every edited version, a suggested fixed file ...).")
+        if s["rev_b_source"] == B_SOURCES[1]:
+            files = {r.id: r for r in s["file_revs"]}
+            if not files:
+                st.info("No saved file yet. Upload a file or load the sample data first.")
+            else:
+                if s.get("rev_b_file") not in files:
+                    s["rev_b_file"] = list(files)[-1]
+                st.selectbox("Saved File To Use As Rev B", list(reversed(list(files))), key="rev_b_file",
+                             format_func=lambda i: files[i].label, help="Every saved version of the input file, newest first.")
+        else:
+            st.file_uploader("Rev B MDB (.xlsx or .csv)", type=["xlsx", "xlsm", "csv"], key="revb_uploader")
     st.text_input("Rev B Label", value="B", key="rev_b_label", max_chars=8, autocomplete="off")
     with st.container(horizontal=True, gap="small", vertical_alignment="center", key="rev_buttons"):
         st.button("Check Allocation First", key="rev_preview_go", on_click=_run_preview, type="primary",

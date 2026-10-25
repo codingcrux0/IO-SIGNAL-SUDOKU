@@ -1,4 +1,4 @@
-"""Rule Radar: Rule Check and Rule Impact on one page, as two tabs (the same way Revision holds its tabs).
+"""Audit: Rule Check and Rule Impact on one page, as two tabs (the same way Revision holds its tabs).
 
   * Rule Check  - pick cells, see every rule that applies to each (cells -> rules);
   * Rule Impact - pick one rule or constraint, see every cell, CHARM and signal it touches (rule -> cells).
@@ -15,9 +15,10 @@ from io_sudoku.ui import state
 def render() -> None:
     from io_sudoku.ui.views import rulecheck, ruleimpact
     s = st.session_state
-    st.header("Rule Radar", help="Every rule and constraint, seen two ways. Rule Check: pick any cell and see every rule "
-                                 "that applies to it. Rule Impact: pick one rule and see every cell, CHARM and signal it "
-                                 "affects, met or broken. Nothing here changes the allocation.")
+    st.header("Audit", help="Every rule and constraint, seen two ways. Rule Check: pick any cell and see every rule "
+                            "that applies to it. Rule Impact: pick one rule and see every cell, CHARM and signal it "
+                            "affects, met or broken. Nothing here changes the allocation. (This page used to be called "
+                            "Rule Radar.)")
     if s.get(state.RULE_TAB_KEY) not in state.RULE_TABS:
         s[state.RULE_TAB_KEY] = state.RULE_TABS[0]
     check_tab, impact_tab = st.tabs(list(state.RULE_TABS), key=state.RULE_TAB_KEY, on_change="rerun")

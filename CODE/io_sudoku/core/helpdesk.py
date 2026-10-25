@@ -103,18 +103,30 @@ GLOSSARY = """GLOSSARY
   activated. Suggested fixes for TQs are verified the same way.
 - Answer: a value given on the TQ Board for one field of one tag, without editing the file; verified by re-allocating.
 - Pin: fixes a cable to a cabinet and CIOC; the solver still checks every rule.
-- Edit File changes the values of cells that already exist. It cannot add or delete rows: missing rows (for example
-  missing cabinet alarm rows) are added in Excel and the file is uploaded again.
+- Edit File changes the values of cells that already exist. A NEW signal is added on Rules › Add A Signal (basic facts,
+  then the new row opens on Edit File to fill in the rest). Other missing rows (for example missing cabinet alarm rows)
+  are added in Excel and the file is uploaded again. Every Save (and every added signal) is kept as a saved file
+  revision: Saved File Revisions (on Upload and Edit File) is a dropdown of every version of the input file, and
+  Use This File works on any of them again.
+- Preflight › Suggested Fixed File is a repaired copy of the file made by fixed rules (no AI, no guessing): spellings
+  the solver already understands, your column choices, exact copies of a row, and values the rest of the file shows
+  with unanimous evidence (a column recognised by what it holds, blanks filled from a second column with the same data,
+  a cable's room or size from its other rows, an IO type from at least 3 signals of the same instrument and signal type
+  that all agree, a cable size smaller than a pair it uses). A scroll box explains every change; a switch turns each
+  kind off; problems the file cannot answer (tags, cable and pair numbers, IS signals ...) are listed with why. Use The
+  Suggested File saves it as a file revision and makes it the input; columns the allocation does not read can become
+  project columns.
 - The fix button of a TQ is labelled by what it opens: "Edit" (the cell, or every row of a cable, on Edit File),
   "Cabinet" (the cabinet on Cabinet Layout, for questions about a whole cabinet) or "Open" (the page section, such as
   Column Mapping or Wired Spares Per Controller). The arrow next to it shows the suggested fix.
 - A warning can be approved (signed off) only after a person has checked it; approving does not change the data."""
 
 PAGES = """PAGES OF THE APP (sidebar)
-Upload (file, sample data, template, workspace, column mapping) - Edit File (change cells; Undo Last Change; Delete All
-Changes) - Preflight (data quality before solving) - Solve (Run Allocation, readiness, summary boxes, Wired Spares Per
+Upload (file, sample data, template, workspace, column mapping, Saved File Revisions) - Edit File (change cells; Undo
+Last Change; Delete All Changes; Saved File Revisions) - Preflight (data quality before solving, Suggested Fixed File) -
+Solve (Run Allocation, readiness, summary boxes, Wired Spares Per
 Controller, Assumptions Used In This Run) - Cabinet Layout (Slot Map, Front & Rear Drawings, All Cabinet Drawings, Why Is It Here?; click a slot to
-check its rules) - Rule Radar (two tabs: Rule Check - pick cells, live log of every rule that applies, Signal Path;
+check its rules) - Audit (two tabs: Rule Check - pick cells, live log of every rule that applies, Signal Path;
 Rule Impact - pick one rule or constraint, see every cell, CHARM and signal it affects, met or broken, on a highlighted
 cabinet map) - TQ Board (two tabs: Questions And Sign-Off - Sign Off The Warnings with Edit buttons and the arrow for
 suggested fixes, All Questions with Error / Warning / Info filters and page buttons, Copy Questions For An Owner, Answer A
@@ -126,7 +138,9 @@ to the current allocation, better or worse, the whole allocation, its questions 
 then Save This Revision or Discard - and Compare Revisions, View In Detail; Revision Library - every saved revision,
 opened by its name with all its data; Revision History with Undo Last Revision and Delete; Revision Simulator, which
 makes a pretend client revision and estimates the rework saved) - Rules (Locked
-Rules, Propose A Rule: Settings, and Columns And Checks - one form for one column: a new project column (name, text or
+Rules, Propose A Rule with two tabs - Columns And Checks and Add A Signal - and, closed at the bottom, Engineering
+Settings (spare %, future space, end baseplates, add a cabinet, IO type names, segregation codes, instrument hardware,
+high-current words; they can move signals, so they go through the Review Queue like rules). Columns And Checks is one form for one column: a new project column (name, text or
 number, unit) or an allocation column, its values per signal (type them in a table, give all shown signals one value,
 paste or upload tags and values, or fill rules plus one value for every other signal), and its checks (at most, at
 least, between, not blank, equal, one of, no duplicates ...), each an error that blocks the result or a warning to
@@ -137,7 +151,7 @@ to any page or section. "Ask The Helpdesk" buttons next to a TQ, the answer box,
 Why Is It Here?, a revision change, a Reviewed Before item and a revision preview open the Helpdesk about that thing;
 each topic is its own conversation.
 There is no Health page and no Simulator page any more (the simulator is a tab of Revision), and Rule Check and Rule
-Impact are the two tabs of Rule Radar; problems in the file are the questions on the TQ Board."""
+Impact are the two tabs of Audit (it used to be called Rule Radar); problems in the file are the questions on the TQ Board."""
 
 
 @lru_cache(maxsize=1)

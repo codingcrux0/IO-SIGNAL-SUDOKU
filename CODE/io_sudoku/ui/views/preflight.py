@@ -9,6 +9,7 @@ from io_sudoku.core.preflight import PreflightReport, preflight
 from io_sudoku.ui import ui_logic
 from io_sudoku.ui.nav import link
 from io_sudoku.ui.state import on_sample
+from io_sudoku.ui.views import suggestfix
 from io_sudoku.ui.views._common import stale_banner
 
 
@@ -34,6 +35,7 @@ def render() -> None:
     st.progress(min(100, max(0, report.score)) / 100, text="Data quality")
     st.caption(f"Every problem in the file becomes a question on the {link('TQ Board', 'TQ Board')} when you "
                "allocate, with a suggested fix and an ✎ Edit button.")
+    suggestfix.render()
     if report.auto_fixed:
         st.subheader("Fixed Automatically")
         labels = {"whitespace_fixed": "Cells with stray spaces cleaned", "io_alias_fixed": "IO type spellings normalised",

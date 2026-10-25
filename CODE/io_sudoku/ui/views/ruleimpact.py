@@ -1,4 +1,4 @@
-"""Rule Impact (the second tab of Rule Radar): pick one rule or constraint and see every cell, CHARM and signal it
+"""Rule Impact (the second tab of Audit): pick one rule or constraint and see every cell, CHARM and signal it
 affects - met or broken.
 
 Rule Check goes from cells to rules; this page goes from a rule to its cells.  The list is worked out from
@@ -52,10 +52,10 @@ def render() -> None:
         return
     st.caption("Pick one rule or constraint and see every cell (slot), CHARM and signal it applies to, and where it is met "
                "or broken: the locked rules, the pack settings, your project rules, answers and pins, and open questions. "
-               f"The other way round (pick cells, see their rules) is the {link_to('Rule Check', 'Rule Radar › Rule Check')} tab.")
+               f"The other way round (pick cells, see their rules) is the {link_to('Rule Check', 'Audit › Rule Check')} tab.")
     if s.get("rev_b_result") is not None:
-        st.radio("Look At", (CURRENT, REV_B), key="ri_source", horizontal=True,
-                 help="Rev B Comparison = the new revision worked out on the Revision page.")
+        st.selectbox("Which Revision To Look At", (CURRENT, REV_B), key="ri_source",
+                     help="Rev B Comparison = the new revision worked out on the Revision page.")
     result, key = _source()
     if s.get("stale") and key == (s["result_key"] or ""):
         st.warning("Your inputs changed after this allocation: this page shows the last allocation. Re-allocate to refresh it.")

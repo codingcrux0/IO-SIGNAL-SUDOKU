@@ -33,6 +33,12 @@ TYPE_LABELS = {"text": "Text", "number": "Number"}
 SEV_LABELS = {"error": "Error · blocks the result", "warning": "Warning · sign off"}
 SCOPE_LABELS = {"all": "Every signal", "some": "Only some signals"}
 SHOW = ("All", "Filled", "Blank", "Typed")
+EMPTY_VIEW = {"Filled": "No signal has a value yet, so Filled shows none (that is correct). Pick Show: All and type "
+                        "values in the table, paste them, or use Fill Many At Once; they then show up here.",
+              "Typed": "No value has been typed by hand yet, so Typed shows none (that is correct). Values from fill "
+                       "rules or “every other signal” count as Filled, not Typed.",
+              "Blank": "Every signal has a value, so Blank shows none.",
+              "All": "No signal to show. Run an allocation first."}
 SHOWN_COLUMNS = (("Tag", "Tag Name"), ("IO Type", "IO Type"), ("Instrument", "Instrument type"),
                  ("Service", "Service Description"), ("Cabinet", "Electronic/ Marshalling Cabinet"))
 MAX_PICKS = 400
@@ -252,6 +258,25 @@ def edit_rule(rule: dict[str, Any]) -> None:
     s["rule_group"] = GROUP
     s["scroll_to"] = WHERE
     state.flash("info", f"“{a.get('column')}” is open in the form below. Change it, then press Propose This Change.", WHERE)
+
+
+def start_from_values(name: str, values: dict[str, str]) -> None:
+    """Open the form as a NEW column with a value for each tag already typed in (a column of the uploaded file that
+    the allocation does not read, from Preflight › Suggested Fixed File).  Nothing is proposed until you press
+    Propose This Column."""
+    s = st.session_state
+    clean_name = " ".join(str(name or "").split())[:pr.LIMITS["column"]]
+    filled = {str(k): str(v).strip()[:pr.LIMITS["value"]] for k, v in (values or {}).items() if str(v).strip()}
+    number = bool(filled) and all(pr.to_number(v) is not None for v in filled.values())
+    if number:
+        filled = {k: pr.show_number(pr.to_number(v)) for k, v in filled.items()}
+    _load({"column": clean_name, "type": "number" if number else "text", "values": dict(list(filled.items())[:pr.LIMITS["values"]]),
+           "note": f"Copied from the column “{clean_name}” of the uploaded file."}, NEW)
+    s["rule_group"] = GROUP
+    s["view"] = "Rules"
+    s["scroll_to"] = WHERE
+    state.flash("info", f"“{clean_name}” is open in the form below with {len(filled):,} values from your file. Check the "
+                        "name, add checks if you want, then press Propose This Column.", WHERE)
 
 
 def remove_rule(rule: dict[str, Any], where: str) -> None:
@@ -589,12 +614,16 @@ def _table(signals: list[dict[str, Any]], rule_now: dict[str, Any]) -> None:
     st.caption(f"{len(by_key):,} signals · {sources['typed']:,} typed by hand · {sources['fill']:,} from fill rules · "
                f"{sources['default']:,} from “every other signal” · {sources['blank']:,} blank"
                + (f" · showing {len(keys):,}" if len(keys) != len(by_key) else ""))
+    if not keys:
+        st.info(EMPTY_VIEW.get(s.get("cb_show") or "All", EMPTY_VIEW["All"]) if not str(s.get("cb_find") or "").strip()
+                else "No signal matches this search with this Show filter. Clear the search or pick Show: All.")
     frame = pd.DataFrame(lines, columns=["Tag", "Value", "From"] + [n for n, _ in SHOWN_COLUMNS[1:]])
+    title = (_column_name() or "Value") + (f" ({s['cb_unit']})" if s.get("cb_unit") else "")    # the column's own name
     if _number():
         frame["Value"] = pd.to_numeric(frame["Value"], errors="coerce")
-        value_col = st.column_config.NumberColumn(f"Value ({s['cb_unit']})" if s.get("cb_unit") else "Value", format="%g")
+        value_col = st.column_config.NumberColumn(title, format="%g", help=f"Type each signal's {title} here.")
     else:
-        value_col = st.column_config.TextColumn("Value", max_chars=pr.LIMITS["value"])
+        value_col = st.column_config.TextColumn(title, max_chars=pr.LIMITS["value"], help=f"Type each signal's {title} here.")
     st.data_editor(frame, key=_editor_key(), hide_index=True, width="stretch", height=min(430, 38 + 35 * max(len(lines), 1)),
                    num_rows="fixed", disabled=[n for n, _ in SHOWN_COLUMNS] + ["From"],
                    column_config={"Value": value_col, "From": st.column_config.TextColumn("From", width="small",

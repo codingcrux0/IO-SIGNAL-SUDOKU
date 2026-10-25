@@ -1,4 +1,4 @@
-"""Rule Check (the first tab of Rule Radar): pick one or more cells (slots) and see, live, every rule and constraint
+"""Rule Check (the first tab of Audit): pick one or more cells (slots) and see, live, every rule and constraint
 that applies to each.
 
 Cells are picked here (case-sensitive search) or by clicking a slot on Cabinet Layout.  The log is worked
@@ -61,13 +61,13 @@ def render() -> None:
     if result_or_empty("the rule check", "rc") is None:
         return
     if s.get("rev_b_result") is not None:
-        st.radio("Check", (CURRENT, REV_B), key="rc_source", horizontal=True,
-                 help="Rev B Comparison = the new revision worked out on the Revision page.")
+        st.selectbox("Which Revision To Check", (CURRENT, REV_B), key="rc_source",
+                     help="Rev B Comparison = the new revision worked out on the Revision page.")
     result, key = _source()
     st.caption("Pick any cell of the allocation and see every rule and constraint that applies to it: the locked rules, "
                "the project rules of the active pack, answers, pins, open questions and the solver's own decisions. The "
                f"other way round (one rule, every cell it affects) is the "
-               f"{link_to('Rule Impact', 'Rule Radar › Rule Impact')} tab.")
+               f"{link_to('Rule Impact', 'Audit › Rule Impact')} tab.")
     _picker(result, key)
     _log(result, key)
 
@@ -222,7 +222,7 @@ def pick(sid: str) -> None:
     s["rc_source"] = CURRENT
     cab = sid.split(cc.SEP)[0]
     s["rc_cab"] = cab
-    s["view"] = "Rule Radar"
+    s["view"] = "Audit"
     s[state.RULE_TAB_KEY] = state.CHECK_TAB
     s["scroll_to"] = "Live Rule Log"
     state.flash("info", f"Showing the rules of {sid.replace(cc.SEP, ' / ')}.", "Live Rule Log")

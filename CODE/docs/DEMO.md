@@ -3,11 +3,11 @@
 Open the app (`streamlit run app.py`). Keep **Try With Sample Data** as the offline fallback and **Lite Mode** for slow machines.
 
 1. **Problem (15 s).** "10,000 tags, error-prone Excel, a 5% client change costs weeks." Show the green *Self-test passed* badge on **Solve**.
-2. **Rule Impact (45 s).** After solving, open **Rule Radar → Rule Impact**: every rule and constraint with the cells it touches. Pick
+2. **Rule Impact (45 s).** After solving, open **Audit → Rule Impact**: every rule and constraint with the cells it touches. Pick
    *Segregation A and B never share a CIOC*: the signals, CHARM types and cabinets it covers, lit up on the cabinet map.
 3. **Preflight and solve (45 s).** On **Upload** load the sample MDB (or press the sample button), open **Preflight**
    (score 100, 83 IO-type spellings auto-fixed), then **Solve → Run Allocation**: about a second, 1,152 rows, 0 violations, `DRAFT` with 2 warnings to sign off. Click the **TQs Raised** box, approve both warnings under **Sign Off The Warnings**, and the badge turns `ISSUE-READY`.
-4. **Rule Check (20 s).** Click any slot on Cabinet Layout: **Rule Radar → Rule Check** lists every rule that applies to
+4. **Rule Check (20 s).** Click any slot on Cabinet Layout: **Audit → Rule Check** lists every rule that applies to
    it, live. Press **Ask AI** on its card: the Helpdesk opens already knowing that cell.
 5. **Cabinet Layout (40 s).** **Slot Map** tab: alarms on baseplate 1, empty end baseplates, A and B in separate CIOCs;
    point at a slot for its details, and pick a tag under *Why Is It Here?*. **Front & Rear Drawings** tab: the elevations.
@@ -23,4 +23,8 @@ Open the app (`streamlit run app.py`). Keep **Try With Sample Data** as the offl
    *AIR*, give the shown signals *24*; add the check *At most 12*, Error: the live count shows 75 signals break it.
    *Propose This Column*, press **Verify** in the Review Queue, *Preview Impact* (readiness would become BLOCKED),
    *Activate*. **Edit** reopens it in the form. The AI only fills the form. "AI never touches the allocation."
-9. **Trust (15 s).** **Files**: open the run manifest in the page; it carries the SHA-256 fingerprint; re-running gives the same hash. Parts list and headroom on **Parts**.
+9. **A messy file (30 s).** Upload a file with renamed and extra columns (or `test_cases/08_io_type_errors.xlsx`):
+   **Preflight → Suggested Fixed File** shows `BLOCKED → ISSUE-READY`, with every change explained in the scroll box
+   and what still needs a person. *Use The Suggested File*, *Re-allocate*. On **Upload**, **Saved File Revisions**
+   goes back to the original in one click. **Rules → Add A Signal** adds a late signal and opens its row on Edit File.
+10. **Trust (15 s).** **Files**: open the run manifest in the page; it carries the SHA-256 fingerprint; re-running gives the same hash. Parts list and headroom on **Parts**.

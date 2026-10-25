@@ -154,7 +154,7 @@ def page_summary() -> str:
         lines += ["FOCUS OF THIS CONVERSATION (the user opened the Helpdesk from here; answer about it unless asked "
                   "otherwise):", str(chat["context"]), "", "THE WHOLE PROJECT:"]
     elif chat.get("kind") == "rule":
-        lines += ["FOCUS: the user wants help with a project rule (Settings, or Columns And Checks: a project column with a value for each signal and the checks those values must pass).", ""]
+        lines += ["FOCUS: the user wants help with a project rule (Columns And Checks: a project column with a value for each signal and the checks those values must pass; Add A Signal; or an Engineering Setting such as the spare percentage).", ""]
     lines.append(f"Page open: {s.get('view')}.")
     if s.get("mdb_name"):
         lines.append(f"File: {s['mdb_name']}" + (f", {len(s['edit_log'])} cell(s) edited in the app." if s.get("edit_log") else "."))

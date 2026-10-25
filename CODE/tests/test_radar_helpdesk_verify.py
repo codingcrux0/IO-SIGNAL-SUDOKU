@@ -1,4 +1,4 @@
-"""One-button Verify for rules and suggestions, Rule Radar (Rule Check + Rule Impact as tabs), picked cells from an
+"""One-button Verify for rules and suggestions, Audit (Rule Check + Rule Impact as tabs), picked cells from an
 earlier file, and the Helpdesk that opens about one thing (with what it already knows) in its own conversation."""
 from __future__ import annotations
 
@@ -72,22 +72,22 @@ def test_a_suggested_fix_is_verified_with_one_button():
     assert at.session_state["suggestions"][0].status == "approved" and not at.exception
 
 
-# ------------------------------------------------------------------ Rule Radar
+# ------------------------------------------------------------------ Audit
 def test_rule_check_and_rule_impact_are_tabs_of_rule_radar_and_old_links_work():
-    assert "Rule Radar" in state.VIEWS and "Rule Check" not in state.VIEWS and "Rule Impact" not in state.VIEWS
+    assert "Audit" in state.VIEWS and "Rule Check" not in state.VIEWS and "Rule Impact" not in state.VIEWS
     assert not [p for p in search.PLACES if p.view in ("Rule Check", "Rule Impact")]
     for old, tab in (("Rule Check", "Rule Check"), ("Rule Impact", "Rule Impact")):
         at = AppTest.from_file(APP, default_timeout=90)
         at.query_params["view"] = old
         at.run()
-        assert at.session_state["view"] == "Rule Radar" and at.session_state["rule_tab"] == tab and not at.exception
-    at = _app("Rule Radar")
+        assert at.session_state["view"] == "Audit" and at.session_state["rule_tab"] == tab and not at.exception
+    at = _app("Audit")
     assert not at.exception and [t.label for t in at.tabs][:2] == ["Rule Check", "Rule Impact"]
     assert "Pick The Cells To Check" in _texts(at) and "Pick A Rule" in _texts(at)        # both tabs, unchanged
 
 
 def test_cells_picked_in_an_earlier_file_are_explained_and_cleared():
-    at = _app("Rule Radar")
+    at = _app("Audit")
     at.session_state["rc_cells"] = ["P99-DCM-00000-01|1|2|1"]
     at.run()
     assert "not in this allocation" in _texts(at) and "earlier file" in _texts(at) and not at.exception
@@ -169,7 +169,7 @@ def test_the_answer_box_opens_the_helpdesk_about_the_answer():
 
 
 def test_a_rule_check_cell_and_a_rule_impact_rule_open_the_helpdesk_with_their_details():
-    at = _app("Rule Radar")
+    at = _app("Audit")
     row = next(r for r in at.session_state["result"].rows if r["Tag Status"] == "Field")
     at.session_state["rc_cells"] = [cellcheck.slot_id(row)]
     at.session_state["ri_pick"] = "V06|Segregation A and B never share a CIOC"
