@@ -2,7 +2,8 @@
 
 Everything here is deterministic: no randomness, every sort has a full tie-break key.
 
-Pass 0  ALARMS      cabinet alarms go on CIOC 1 / baseplate 1 of their cabinet.
+Pass 0  ALARMS      cabinet alarms go on the cabinet-alarm baseplate of their cabinet (a project choice:
+                    CIOC 1 / baseplate 1 by default, rules.alarm_cioc / alarm_bp).
 Pass 1  CABINETS    each logic group (cables that share a Logic Number) is assigned, as a
                     whole, to ONE cabinet of its technical room: the one with the most
                     remaining capacity (worst-fit decreasing keeps cabinets balanced).
@@ -66,7 +67,7 @@ def alarm_kind(tag: str | None) -> str | None:
 
 def place_alarms(alarms: list[Signal], cfg: Config, grids: dict[str, CabinetGrid], log: TQLog,
                  traces: dict[str, list[str]] | None = None) -> list[Signal]:
-    """Put cabinet alarms on CIOC 1 / baseplate 1. Returns the alarms that could not be placed."""
+    """Put cabinet alarms on the cabinet-alarm baseplate. Returns the alarms that could not be placed."""
     traces = traces if traces is not None else {}
     unplaced: list[Signal] = []
     per_cab: dict[str, list[tuple[tuple, Signal, str]]] = defaultdict(list)
@@ -95,7 +96,9 @@ def place_alarms(alarms: list[Signal], cfg: Config, grids: dict[str, CabinetGrid
                 unplaced.append(alarm)
                 continue
             grid.place_alarm(alarm, index + 1, kind)
-            _note(traces, alarm.key, f"Cabinet alarm {kind}: fixed to CIOC 1, baseplate 1, channel {index + 1} of {cab.marshalling}")
+            _note(traces, alarm.key, f"Cabinet alarm {kind}: fixed to CIOC {cfg.rules.alarm_cioc}, baseplate "
+                                     f"{cfg.rules.alarm_bp}, channel {index + 1} of {cab.marshalling} (the project's "
+                                     "cabinet-alarm baseplate)")
     return unplaced
 
 

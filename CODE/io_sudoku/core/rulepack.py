@@ -5,9 +5,14 @@ extra keywords ...).  The default pack `VIT-2026` holds the values from CLAUDE_R
 read-only: changing anything creates a NEW pack version that points back to its parent.
 
 What a pack can NEVER change (the locked core, see LOCKED_RULES): the 384-slot capacity,
-the CHARM_No formula, the cabinet-alarm baseplate, the A/B separation, SE6103 spare slots,
-the base hardware table, the naming formulas and determinism.  They are simply not
-fields of a pack, so no pack - and no AI suggestion - can express a change to them.
+the CHARM_No formula, the A/B separation, SE6103 spare slots, the base hardware table and
+determinism.  They are simply not fields of a pack, so no pack - and no AI suggestion - can
+express a change to them.
+
+PROJECT CHOICES are different (see project_choices): the VIT guide says the cabinet-alarm baseplate,
+the spare percentages, the empty baseplates, the segregation codes and the naming details are
+customer specific.  Those that the solver tunes are pack settings (the alarm baseplate, spares,
+future space, empty baseplates, segregation codes ...); the names come from the cabinet list.
 """
 from __future__ import annotations
 
@@ -25,14 +30,36 @@ from io_sudoku.core.topology_infer import NAME_RE
 LOCKED_RULES: tuple[str, ...] = (
     "384 slots per cabinet (4 CIOCs x 8 baseplates x 12 channels)",
     "CHARM_No = (Baseplate - 1) x 12 + Channel",
-    "CIOC 1 / baseplate 1 is reserved for Cabinet Alarms",
-    "Segregation A and B never share a CIOC",
+    "Segregation A and B never share a CIOC (which codes are A or B is a project choice)",
     "Spare Slot = SE6103, no functional CHARM",
     "Base hardware mapping (AIR, AOR, DIR, DOR CHARMs and terminal blocks)",
-    "Naming formulas",
     "Deterministic allocation (no AI)",
 )
-PARAM_RANGES = {"spare_pct": (0, 30), "future_pct": (0, 30), "end_reserve_bps": (0, 8), "empty_bp_min": (0, 8)}
+PARAM_RANGES = {"spare_pct": (0, 30), "future_pct": (0, 30), "end_reserve_bps": (0, 8), "empty_bp_min": (0, 8),
+                "alarm_cioc": (1, 4), "alarm_bp": (1, 8)}
+
+
+def project_choices(rules: Any) -> list[str]:
+    """The project's own choices in force (the VIT guide: "Customer-specific items"), in words, with how each one is
+    changed.  `rules` = Config.rules of the active pack."""
+    end = f"{rules.end_reserve_bps} empty baseplates kept at the end of CIOC 4"
+    if rules.empty_bp_min:
+        end += f" (a warning when fewer than {rules.empty_bp_min} are empty)"
+    neutral = ", ".join(rules.neutral_codes) or "none"
+    return [
+        f"Cabinet-alarm baseplate: CIOC {rules.alarm_cioc}, baseplate {rules.alarm_bp} of every marshalling cabinet "
+        "(Engineering Settings: Cabinet-alarm baseplate)",
+        f"Wired spares: {rules.spare_pct}% per IO type per controller, rounded up (Engineering Settings)",
+        f"Future space: {rules.future_pct}% of each cabinet kept as Spare Slots (Engineering Settings)",
+        f"Unconnected baseplates: {end} (Engineering Settings)",
+        f"Segregation codes: A = {', '.join(rules.a_codes)}; B = {', '.join(rules.b_codes)}; neutral = {neutral}. "
+        "Any other code (for example A-B or B-A) is asked about, never assumed (Engineering Settings: Segregation code)",
+        "High-current outputs (SE4302T02 on SE4502): instrument or service words "
+        + ", ".join(rules.high_current_keywords) + " (Engineering Settings: High-current keyword)",
+        "Naming: system cabinet, marshalling cabinet, controller, CIOC, baseplate and wired-spare tags follow this "
+        "project's pattern, built from the cabinet list (location prefix, area code and sequence numbers)",
+        "IRC and MCC signals are out of scope: they are held back with a question, never allocated",
+    ]
 OVERRIDE_KEYS = ("io_aliases", "high_current_keywords", "high_current_codes", "instrument_profiles",
                  "segregation_families", "extra_cabinets", "project_rules")
 _CABINET_FIELDS = ("marshalling", "system", "controller", "tech_room", "loc", "area5", "unit", "cabinet_seq", "ctrl_seq")
@@ -74,6 +101,12 @@ def validate_pack(pack: RulePack) -> list[str]:
         elif not isinstance(value, int) or isinstance(value, bool) or not PARAM_RANGES[key][0] <= value <= PARAM_RANGES[key][1]:
             low, high = PARAM_RANGES[key]
             problems.append(f"{key} must be a whole number from {low} to {high}.")
+    from io_sudoku.core.config import RulesCfg
+    numbers = {k: v for k, v in pack.params.items() if k in PARAM_RANGES and isinstance(v, int) and not isinstance(v, bool)}
+    if not problems:
+        clash = replace(RulesCfg(), **numbers).alarm_problem()
+        if clash:
+            problems.append(clash)
     for key, value in pack.overrides.items():
         if key not in OVERRIDE_KEYS:
             problems.append(f"'{key}' is not something a rule pack can override.")

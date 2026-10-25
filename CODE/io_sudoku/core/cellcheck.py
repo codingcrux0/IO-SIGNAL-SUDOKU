@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from io_sudoku.core.catalog import charm_matches_io, hardware
-from io_sudoku.core.constants import (BPS_PER_CIOC, CIOCS_PER_CAB, PROFILES, SLOTS_PER_BP, SLOTS_PER_CAB, STATUS_ALARM,
+from io_sudoku.core.constants import (ALARM_BP, ALARM_CIOC, BPS_PER_CIOC, CIOCS_PER_CAB, PROFILES, SLOTS_PER_BP, SLOTS_PER_CAB, STATUS_ALARM,
                                       STATUS_FIELD, STATUS_SLOT, STATUS_WIRED)
 from io_sudoku.core.naming import parse_bp
 from io_sudoku.core.projectrules import all_dupes, rule_outcomes
@@ -162,15 +162,16 @@ def check_cell(result: Any, row: dict[str, Any], *, overrides: list[Any] | None 
     seq = _cioc_seq(row)
     add(PASS if seq is not None and bp_name[:3] == f"{seq:03d}" else FAIL, "V03", "Baseplate name matches its CIOC",
         f"baseplate {bp_name} on {cioc_name}")
-    on_alarm_bp = cioc == 1 and bp == 1
+    a_cioc, a_bp = (rules.alarm_cioc, rules.alarm_bp) if rules is not None else (ALARM_CIOC, ALARM_BP)
+    on_alarm_bp = cioc == a_cioc and bp == a_bp
+    kept = f"CIOC {a_cioc}, baseplate {a_bp} is kept for cabinet alarms (a project choice)"
     if status == STATUS_ALARM:
-        add(PASS if on_alarm_bp else FAIL, "V07", "Cabinet alarms sit on CIOC 1, baseplate 1",
+        add(PASS if on_alarm_bp else FAIL, "V07", f"Cabinet alarms sit on CIOC {a_cioc}, baseplate {a_bp} (a project choice)",
             "this alarm is " + ("there" if on_alarm_bp else f"on CIOC {cioc}, baseplate {bp}"))
     elif on_alarm_bp:
-        add(PASS if status == STATUS_SLOT else FAIL, "V07", "CIOC 1, baseplate 1 is kept for cabinet alarms",
-            f"this slot is a {status}")
+        add(PASS if status == STATUS_SLOT else FAIL, "V07", kept, f"this slot is a {status}")
     else:
-        add(PASS, "V07", "CIOC 1, baseplate 1 is kept for cabinet alarms", "this slot is not on that baseplate")
+        add(PASS, "V07", kept, "this slot is not on that baseplate")
     if status in (STATUS_FIELD, STATUS_WIRED, STATUS_ALARM):
         families = ctx.families.get((cab, cioc_name), set())
         mine = _family(_s(row, "Segregation"), cfg) if status == STATUS_FIELD else None

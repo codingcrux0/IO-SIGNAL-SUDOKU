@@ -15,10 +15,13 @@ CIOCS_PER_CAB = 4
 SLOTS_PER_CIOC = SLOTS_PER_BP * BPS_PER_CIOC          # 96
 SLOTS_PER_CAB = SLOTS_PER_CIOC * CIOCS_PER_CAB        # 384
 
-# Baseplate 1 of CIOC 1 is reserved for Cabinet Alarms (CLAUDE_RULES section 3D.1).
+# The cabinet-alarm baseplate: ONE baseplate of every marshalling cabinet is kept for Cabinet Alarms.  Which one is a
+# PROJECT CHOICE, not a DeltaV rule (the VIT guide: "the first baseplate of each marshalling cabinet was reserved for
+# cabinet alarms. This is a project choice"), so it is a rule-pack setting (RulesCfg.alarm_cioc / alarm_bp).  These
+# are this project's defaults: CIOC 1, baseplate 1 (CLAUDE_RULES section 3D.1).
 ALARM_CIOC = 1
 ALARM_BP = 1
-ALARM_SLOTS = SLOTS_PER_BP                            # 12 channels of alarms at most
+ALARM_SLOTS = SLOTS_PER_BP                            # one baseplate: 12 channels of alarms at most
 
 # --- Tag status values (the "Tag Status" column) ----------------------------------
 STATUS_FIELD = "Field"

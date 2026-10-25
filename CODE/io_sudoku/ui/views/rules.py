@@ -16,7 +16,7 @@ from io_sudoku.core import advisor, rulechange as rc
 from io_sudoku.core import suggestion as sg_mod
 from io_sudoku.core.pipeline import solve
 from io_sudoku.core.projectrules import project_columns
-from io_sudoku.core.rulepack import LOCKED_RULES, pack_from_dict, pack_hash, pack_to_dict, validate_pack
+from io_sudoku.core.rulepack import LOCKED_RULES, pack_from_dict, pack_hash, pack_to_dict, project_choices, validate_pack
 from io_sudoku.ui import rulescope, state, ui_logic
 from io_sudoku.ui.views import addsignal, columns
 from io_sudoku.ui.views._common import ask_first, heading, md_escape
@@ -33,14 +33,15 @@ GROUP_HELP = ("Columns And Checks is one form for one column: make a new project
 SETTINGS_TITLE = "Engineering Settings (advanced)"
 SETTINGS_HELP = ("These change a number or a name the solver works with, for the whole project: the wired-spare "
                  "percentage per controller, the future space kept free in each cabinet, the empty baseplates at the "
-                 "end, an extra cabinet for a room, a new name for an IO type, a segregation code, an instrument's "
+                 "end, which baseplate of every cabinet holds the cabinet alarms, an extra cabinet for a room, a new name for an IO type, a segregation code, an instrument's "
                  "hardware, or a word that marks high-current loads. Unlike a project column, a setting CAN move "
                  "signals, so it is proposed, verified in the Review Queue, previewed and activated like any rule. "
                  "Most projects never need to change them.")
 # the text fields of a Settings rule that are about values in the allocation get a dropdown of those values
 PICK_FROM = {("instrument_profile", "instrument"): "Instrument type", ("segregation_family", "code"): "Segregation"}
 ARG_LABELS = {"io": "IO Type", "match_column": "Look At Column", "match_text": "That Contains", "charm_type": "Must Use CHARM",
-              "check_column": "Must Have Filled In", "column": "New Column Name", "value": "Value", "pct": "Percent"}
+              "check_column": "Must Have Filled In", "column": "New Column Name", "value": "Value", "pct": "Percent",
+              "alarm_cioc": "CIOC", "alarm_bp": "Baseplate"}
 QUEUE, SUGGESTIONS, PREVIEW, ACTIVE = "Review Queue", "Suggested Fixes Waiting For Verification", "Preview And Activate", \
     "Project Rules And Where They Apply"
 
@@ -242,6 +243,12 @@ def render() -> None:
     pack = s["pack"]
     with st.expander(f"Locked Rules ({len(LOCKED_RULES)}) \u00b7 they can never be changed", icon="\U0001F512"):
         st.markdown("\n".join(f"- {r}" for r in LOCKED_RULES))
+    choices = project_choices(ui_logic.config_for_pack(pack).rules)
+    with st.expander(f"Project Choices ({len(choices)}) \u00b7 customer specific, changeable", icon=":material/tune:"):
+        st.caption("The VIT allocation guide lists these as customer-specific items, not DeltaV rules. These are the "
+                   "values in force for the active pack. The ones the solver uses are changed under Engineering "
+                   "Settings below (proposed, verified, previewed and activated like any rule).")
+        st.markdown("\n".join(f"- {md_escape(c)}" for c in choices))
     with st.container(border=True, key="rules_pack_card"):
         a, b = st.columns([3, 2], vertical_alignment="center")
         a.markdown(f"**Active pack:** {md_escape(pack.name)} v{pack.version} · fingerprint `{pack_hash(pack)[:10]}`",

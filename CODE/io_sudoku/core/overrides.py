@@ -7,7 +7,7 @@ the MDB and BEFORE validation, so the corrected signal still goes through every 
 Rules that keep this safe:
   * only whitelisted fields can be overridden (OVERRIDABLE_FIELDS);
   * every value is validated (IO type must be AIR/AOR/DIR/DOR, pair must be >= 1 ...);
-  * locked rules (capacity, CHARM formula, alarm baseplate, A/B separation ...) are not
+  * locked rules (capacity, CHARM formula, A/B separation ...) and the project's settings (the alarm baseplate ...) are not
     fields of a signal at all, so they cannot be overridden;
   * overrides are plain data, saved as JSON, and hashed into the run manifest.
 """

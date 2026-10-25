@@ -11,7 +11,7 @@ How it works:
   4. Every step is recorded in an audit log.
 approve()/reject() are the stricter gate (a different person and an approver passcode); they are
 kept for a deployment that wants it.
-The LOCKED rules (capacity, CHARM formula, alarm baseplate, A/B separation ...) have no template,
+The LOCKED rules (capacity, CHARM formula, A/B separation ...) have no template,
 so they cannot be proposed at all.
 """
 from __future__ import annotations
@@ -63,6 +63,9 @@ TEMPLATES: dict[str, RuleTemplate] = {t.key: t for t in (
                  "Keep {value}% of each cabinet as future Spare Slots."),
     RuleTemplate("end_reserve_bps", "Empty end baseplates", (ArgSpec("value", "int", lo=0, hi=8),),
                  "Keep the last {value} baseplates of CIOC 4 empty."),
+    RuleTemplate("alarm_baseplate", "Cabinet-alarm baseplate",
+                 (ArgSpec("alarm_cioc", "int", lo=1, hi=4), ArgSpec("alarm_bp", "int", lo=1, hi=8)),
+                 "Reserve CIOC {alarm_cioc}, baseplate {alarm_bp} of every marshalling cabinet for cabinet alarms."),
     RuleTemplate("add_cabinet", "Add a cabinet", (ArgSpec("room", "choice"),),
                  "Add one more marshalling cabinet in {room}."),
     # project columns and constraints on CHARM signals (see projectrules: they never move a signal)
@@ -164,6 +167,10 @@ def build_proposal(template: str, args: dict[str, Any], author: str, source: str
     else:
         rooms = known_rooms if known_rooms is not None else load_config().known_rooms()
         clean_args, errors = _validate_args(spec, dict(args), rooms)
+        if not errors and template == "alarm_baseplate":
+            from io_sudoku.core.config import RulesCfg
+            clash = RulesCfg(alarm_cioc=clean_args["alarm_cioc"], alarm_bp=clean_args["alarm_bp"]).alarm_problem()
+            errors = [clash] if clash else []
         if errors:
             return None, errors
         statement = spec.statement.format(**clean_args)
@@ -256,6 +263,10 @@ def apply_approved(pack: RulePack, proposals: list[RuleProposal], cfg: Config | 
             overrides.setdefault("segregation_families", {})[str(a["code"]).upper()] = a["family"]
         elif p.template in ("spare_pct", "future_pct", "end_reserve_bps"):
             params[p.template] = int(a["value"])
+            if p.template == "end_reserve_bps":           # the 'keep N empty' warning (V16) follows a smaller choice
+                params["empty_bp_min"] = min(int(params.get("empty_bp_min", 3)), int(a["value"]))
+        elif p.template == "alarm_baseplate":
+            params["alarm_cioc"], params["alarm_bp"] = int(a["alarm_cioc"]), int(a["alarm_bp"])
         elif p.template == "column_rule":
             rules = overrides.setdefault("project_rules", [])
             rules[:] = [r for r in rules if not _same_column(r, a)]          # a column has one rule: the newest

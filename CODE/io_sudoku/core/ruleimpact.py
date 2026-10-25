@@ -21,13 +21,13 @@ LOCKED, SETTINGS, PROJECT, PEOPLE, QUESTIONS = ("Locked Rules", "Pack Settings",
 GROUPS = (LOCKED, SETTINGS, PROJECT, PEOPLE, QUESTIONS)
 GROUP_HELP = {
     LOCKED: "Hardware and template rules every allocation must keep. They can never be changed.",
-    SETTINGS: "Rules the project's rule pack tunes: wired spares, future space, empty baseplates, high-current "
-              "outputs, instrument hardware and neutral segregation codes.",
+    SETTINGS: "Project choices the rule pack tunes: the cabinet-alarm baseplate, wired spares, future space, empty "
+              "baseplates, high-current outputs, instrument hardware and segregation codes.",
     PROJECT: "The project columns and constraints added on the Rules page. They check, they never move a signal.",
     PEOPLE: "Answers given on the TQ Board and cables pinned by an engineer.",
     QUESTIONS: "Open errors and warnings, findings of the independent checker, and inferred cabinet names.",
 }
-_SETTING_RULES = {"V10", "V14", "V16"}
+_SETTING_RULES = {"V07", "V10", "V14", "V16"}             # project choices (the VIT guide), not DeltaV rules
 _SETTING_TITLES = {"High-current output", "Instrument hardware", "Segregation code"}   # set by the pack, not added rules
 _V_CODE = re.compile(r"^V\d\d$")
 

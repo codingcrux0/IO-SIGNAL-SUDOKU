@@ -61,6 +61,7 @@ def _rows() -> list[tuple[str, str, str, str, str]]:
         ("UNKNOWN-DOR-DUTY", "warning", "Hardware", "Electrical", "Confirm the digital output load; a standard output was assumed."),
         ("HIGH-CURRENT-VERIFY", "info", "Hardware", "Electrical", "Verify load, inrush current, fuse and injected power."),
         ("RTD-FIELD-SIGNAL", "warning", "Hardware", "Electrical", "RTD input was mapped to SE4303T01 per the project rule; confirm."),
+        ("DIR-CONTACT-CHECK", "warning", "Hardware", "Electrical", "Confirm the input is a dry (voltfree) contact, or give the hardware it needs."),
         ("NO-CABINET-FOR-ROOM", "error", "Topology", "Engineering", "Add the technical room to the topology."),
         ("TOPOLOGY-INFERRED", "warning", "Topology", "Engineering", "Confirm the inferred cabinet and controller names."),
         ("GROUP-SPANS-ROOMS", "error", "Topology", "Engineering", "Confirm the technical room of the cables that share logic."),
@@ -132,6 +133,8 @@ MESSAGES: dict[str, str] = {
     "UNKNOWN-DOR-DUTY": "Tag {ref} is a digital output with no load description, so a standard output was assumed. What does it drive?",
     "HIGH-CURRENT-VERIFY": "Cable {ref} carries high-current outputs. Have the load, inrush current, fuse and injected power been checked?",
     "RTD-FIELD-SIGNAL": "Tag {ref} is an RTD input, but the project rule maps analog inputs to SE4303T01. Is that right?",
+    "DIR-CONTACT-CHECK": "Tag {ref} is a digital input whose signal level is not a voltfree contact, but the project's "
+                         "input CHARM (SE4301T02) is for 24 VDC dry contacts. Which contact type is it?",
     "NO-CABINET-FOR-ROOM": "Technical room {ref} has no cabinet in the topology. Which cabinets serve it?",
     "TOPOLOGY-INFERRED": "Cabinets for technical room {ref} were inferred from names. Are they correct?",
     "GROUP-SPANS-ROOMS": "Cables that share logic with {ref} sit in different technical rooms. Which room is right?",

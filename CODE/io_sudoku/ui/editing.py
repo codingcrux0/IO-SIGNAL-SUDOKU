@@ -37,7 +37,7 @@ FIELD_FOR_TQ: dict[str, str] = {
     "CABLE-SIZE-ROUNDED": "cable_size", "CABLE-TOO-LARGE": "cable_size",
     "UNSUPPORTED-SEGREGATION": "segregation", "MIXED-SEGREGATION": "segregation",
     "IS-SIGNAL-UNSUPPORTED": "execution", "OUT-OF-SCOPE-SIGNAL": "service",
-    "MISSING-SIGNAL-LEVEL": "signal_level", "RTD-FIELD-SIGNAL": "signal_type", "UNKNOWN-DOR-DUTY": "instrument_type",
+    "MISSING-SIGNAL-LEVEL": "signal_level", "RTD-FIELD-SIGNAL": "signal_type", "DIR-CONTACT-CHECK": "signal_level", "UNKNOWN-DOR-DUTY": "instrument_type",
     "NO-CABINET-FOR-ROOM": "tech_room", "TOPOLOGY-INFERRED": "tech_room", "GROUP-SPANS-ROOMS": "tech_room",
     "NO-CABINET-FOR-ALARM": "equipment", "DELETED-IN-MDB": "status",
 }

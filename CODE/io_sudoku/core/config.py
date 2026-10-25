@@ -15,7 +15,8 @@ from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any
 
-from io_sudoku.core.constants import MAX_CABINETS, SLOTS_PER_CAB, ALARM_SLOTS, SLOTS_PER_BP
+from io_sudoku.core.constants import (ALARM_BP, ALARM_CIOC, ALARM_SLOTS, BPS_PER_CIOC, CIOCS_PER_CAB, MAX_CABINETS,
+                                      SLOTS_PER_BP, SLOTS_PER_CAB)
 from io_sudoku.core.naming import area4
 from io_sudoku.core.textnorm import match_key
 
@@ -51,13 +52,15 @@ class CabinetCfg:
 
 @dataclass
 class RulesCfg:
-    """Tunable project parameters.  The LOCKED rules (384 slots, CHARM formula, alarm
-    baseplate, A/B separation, SE6103 spare slots, hardware table) are not here."""
+    """Tunable project parameters (project choices).  The LOCKED rules (384 slots, CHARM formula, A/B separation,
+    SE6103 spare slots, hardware table) are not here."""
 
     spare_pct: int = 10
     future_pct: int = 10
     end_reserve_bps: int = 4          # last baseplates of CIOC 4 kept empty (CLAUDE_RULES 3D.3)
     empty_bp_min: int = 3
+    alarm_cioc: int = ALARM_CIOC      # the cabinet-alarm baseplate: a project choice (CIOC 1-4 ...
+    alarm_bp: int = ALARM_BP          # ... baseplate 1-8), the same in every marshalling cabinet
     auto_expand: bool = True          # add another cabinet when a room is full
     batch: str = "B1"
     a_codes: tuple[str, ...] = ("A", "A-CONTROL")
@@ -71,8 +74,22 @@ class RulesCfg:
     project_rules: tuple[dict[str, Any], ...] = ()   # project columns and constraints (checked after the solve)
 
     def usable_channels(self) -> int:
-        """Channels per cabinet available to field cables: 384 - alarm baseplate - end reserve."""
-        return SLOTS_PER_CAB - ALARM_SLOTS - self.end_reserve_bps * SLOTS_PER_BP
+        """Channels per cabinet available to field cables: 384 - alarm baseplate - the space kept free, which is the
+        empty end baseplates or the future space, whichever is larger (both must be kept: with the defaults the 4 end
+        baseplates = 48 channels already hold the 10% future space of 39, so this is 324)."""
+        kept_free = max(self.end_reserve_bps * SLOTS_PER_BP, self.future_slots_required())
+        return SLOTS_PER_CAB - ALARM_SLOTS - kept_free
+
+    def alarm_problem(self) -> str:
+        """'' when the cabinet-alarm baseplate is a usable position, else why not (it must not be one of the empty
+        baseplates kept at the end of CIOC 4)."""
+        if not (1 <= self.alarm_cioc <= CIOCS_PER_CAB and 1 <= self.alarm_bp <= BPS_PER_CIOC):
+            return f"The cabinet-alarm baseplate must be CIOC 1-{CIOCS_PER_CAB}, baseplate 1-{BPS_PER_CIOC}."
+        empty_end = max(self.end_reserve_bps, self.empty_bp_min)
+        if self.alarm_cioc == CIOCS_PER_CAB and self.alarm_bp > BPS_PER_CIOC - empty_end:
+            return (f"CIOC {CIOCS_PER_CAB}, baseplate {self.alarm_bp} is one of the last {empty_end} baseplates kept "
+                    "empty, so it cannot hold the cabinet alarms.")
+        return ""
 
     def future_slots_required(self) -> int:
         """Spare Slots every cabinet must keep: ceil(future_pct% of 384) = 39 for 10%."""
@@ -152,7 +169,7 @@ class Config:
 _TUPLE_FIELDS = ("a_codes", "b_codes", "neutral_codes", "high_current_keywords",
                  "high_current_codes", "out_of_scope_keywords")
 _DICT_FIELDS = ("io_aliases", "instrument_profiles")
-_INT_FIELDS = ("spare_pct", "future_pct", "end_reserve_bps", "empty_bp_min")
+_INT_FIELDS = ("spare_pct", "future_pct", "end_reserve_bps", "empty_bp_min", "alarm_cioc", "alarm_bp")
 
 
 def _cabinet_from_dict(d: dict[str, Any]) -> CabinetCfg:
@@ -181,6 +198,8 @@ def _rules_from_dict(d: dict[str, Any]) -> RulesCfg:
             rules.auto_expand = bool(value)
         elif name == "batch":
             rules.batch = str(value)
+    if rules.alarm_problem():                       # an unusable alarm baseplate falls back to the project default
+        rules.alarm_cioc, rules.alarm_bp = ALARM_CIOC, ALARM_BP
     return rules
 
 

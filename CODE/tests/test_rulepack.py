@@ -97,8 +97,8 @@ def test_extra_cabinets_are_added_once():
 
 
 def test_no_locked_rule_can_be_expressed():
-    assert len(LOCKED_RULES) == 8
-    assert set(PARAM_RANGES) == {"spare_pct", "future_pct", "end_reserve_bps", "empty_bp_min"}
+    assert len(LOCKED_RULES) == 6 and not any("alarm" in r.lower() for r in LOCKED_RULES)
+    assert set(PARAM_RANGES) == {"spare_pct", "future_pct", "end_reserve_bps", "empty_bp_min", "alarm_cioc", "alarm_bp"}
     assert OVERRIDE_KEYS == ("io_aliases", "high_current_keywords", "high_current_codes", "instrument_profiles",
                              "segregation_families", "extra_cabinets", "project_rules")
     # A and B can still never share a CIOC whatever a pack says: families may be re-mapped, never merged.

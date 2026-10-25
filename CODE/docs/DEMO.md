@@ -9,7 +9,7 @@ Open the app (`streamlit run app.py`). Keep **Try With Sample Data** as the offl
    (score 100, 83 IO-type spellings auto-fixed), then **Solve → Run Allocation**: about a second, 1,152 rows, 0 violations, `DRAFT` with 2 warnings to sign off. Click the **TQs Raised** box, approve both warnings under **Sign Off The Warnings**, and the badge turns `ISSUE-READY`.
 4. **Rule Check (20 s).** Click any slot on Cabinet Layout: **Audit → Rule Check** lists every rule that applies to
    it, live. Press **Ask AI** on its card: the Helpdesk opens already knowing that cell.
-5. **Cabinet Layout (40 s).** **Slot Map** tab: alarms on baseplate 1, empty end baseplates, A and B in separate CIOCs;
+5. **Cabinet Layout (40 s).** **Slot Map** tab: alarms on baseplate 1 (this project's choice; Engineering Settings can move it), empty end baseplates, A and B in separate CIOCs;
    point at a slot for its details, and pick a tag under *Why Is It Here?*. **Front & Rear Drawings** tab: the elevations.
    **All Cabinet Drawings** in the cabinet list: every cabinet in one scroll box, with *Why Is It Here?* below it.
 6. **TQs (25 s).** **TQ Board**: grouped by owner with e-mail-ready text. Apply a suggested answer, press *Re-solve*.

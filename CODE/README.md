@@ -114,8 +114,12 @@ Moving around and fixing things:
   segregation, instrument, signal type, service), each a dropdown of the values your file already uses; picking a
   cable fills in its room, size and next free pair. The row is added to your file (saved as a file revision) and
   opens on Edit File to fill in every other column.
-- **Rules → Engineering Settings** (closed at the bottom of Propose A Rule): spare %, future space, end baseplates,
-  an extra cabinet, IO type names, segregation codes, instrument hardware, high-current words. They can move signals,
+- **Rules → Locked Rules and Project Choices**: the locked rules are hardware facts and the tool's own principles
+  (384 slots, the CHARM_No formula, A and B never share a CIOC, SE6103 spare slots, the hardware table, determinism).
+  The VIT allocation guide calls the cabinet-alarm baseplate, spare percentages, unconnected baseplates, segregation
+  codes and naming details customer specific, so they are listed as **Project Choices** with the values in force.
+- **Rules → Engineering Settings** (closed at the bottom of Propose A Rule): the cabinet-alarm baseplate (any CIOC and
+  baseplate, except the empty ones at the end of CIOC 4), spare %, future space, end baseplates, an extra cabinet, IO type names, segregation codes, instrument hardware, high-current words. They can move signals,
   so they go through the Review Queue like rules.
 - **Rules → Columns And Checks**, one form for one column (the value column is named after your column, in the form
   and in **Where It Applies**):
@@ -180,7 +184,8 @@ Run `--help` on any command for its options.
 ## How the answer is reached
 
 Cables are the atomic unit (pair N lands on channel N). Logic groups share a cabinet. Cabinets are filled
-worst-fit-decreasing, family A and B never share a CIOC, CIOC 1 baseplate 1 holds only cabinet alarms,
+worst-fit-decreasing, family A and B never share a CIOC, one baseplate of every cabinet holds only cabinet alarms
+(CIOC 1 baseplate 1 in this project: a project choice, changeable under Rules › Engineering Settings),
 10% wired spares per controller and IO type are converted from unused pairs, and the last baseplates stay empty
 for future growth. An independent verifier (rules V01 to V16) re-checks the finished allocation, and a readiness
 gate marks the result `ISSUE-READY`, `DRAFT` or `BLOCKED`. Bad data never crashes the tool: it becomes a TQ.

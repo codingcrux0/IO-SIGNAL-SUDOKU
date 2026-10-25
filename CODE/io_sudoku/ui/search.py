@@ -114,7 +114,9 @@ PLACES: tuple[Place, ...] = (
        label="Revision › Simulator › Try Several Sizes"),
     _p("Rules", words="rules locked pack"),
     _p("Rules", "Locked Rules", "locked fixed cannot change hard rules", label="Rules › Locked Rules"),
-    _p("Rules", "Propose A Rule", "propose rule change template engineering settings spare percent future space alias "
+    _p("Rules", "", "project choices customer specific alarm baseplate cabinet alarms spare percentage segregation codes "
+       "naming unconnected baseplates", label="Rules › Project Choices"),
+    _p("Rules", "Propose A Rule", "propose rule change template engineering settings cabinet alarm baseplate spare percent future space alias "
        "cabinet segregation code instrument hardware high current", label="Rules › Engineering Settings"),
     _p("Rules", "Propose A Rule", "add new signal tag row later arrives input cable pair room", "rule_group", "Add A Signal",
        label="Rules › Add A Signal"),

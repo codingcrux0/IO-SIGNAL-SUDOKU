@@ -368,7 +368,8 @@ def _incremental_placer(layout: Layout, rows_a: list[dict[str, Any]], pins: dict
                 continue
             grid = grid_of(cab)
             step = 6 if block.length == 6 else 12
-            fits = (lay.start % step == 0 and lay.start + block.length <= 96 and not (lay.cioc == 1 and lay.start < 12)
+            fits = (lay.start % step == 0 and lay.start + block.length <= 96
+                    and not grid.overlaps_alarm(lay.cioc, lay.start, lay.start + block.length)
                     and not any(grid.occ[lay.cioc][lay.start:lay.start + block.length])
                     and family_fits(grid.cioc_family(lay.cioc), block.family))
             if fits:

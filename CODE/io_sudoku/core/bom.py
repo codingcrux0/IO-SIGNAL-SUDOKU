@@ -99,7 +99,7 @@ def headroom(rows: list[dict[str, Any]], cfg: Config) -> list[dict[str, Any]]:
             seen.add((cioc, bp))
             if r.get("Tag Status") == STATUS_SLOT and _s(r, "Field Cable No") != "-":
                 reserved_pairs += 1
-            alarm_bp = cioc == 1 and bp == 1
+            alarm_bp = cioc == cfg.rules.alarm_cioc and bp == cfg.rules.alarm_bp
             end_reserve = cioc == CIOCS_PER_CAB and cfg.rules.end_reserve_bps > 0 and bp > reserve_from
             if r.get("Tag Status") == STATUS_SLOT and _s(r, "Field Cable No") == "-" and not alarm_bp and not end_reserve:
                 free[(cioc, bp)].add(ch)

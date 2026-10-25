@@ -12,7 +12,7 @@ Rules (V10W and V16 are warnings, everything else is an error):
   V04 cable pairs unique and in channel order     V11 exactly 384 slots per cabinet
   V05 a cable is one aligned contiguous run       V12 wired-spare tag equals its address
   V06 A and B never share a CIOC                  V13 cabinet / CIOC / controller consistency
-  V07 CIOC 1 baseplate 1 = alarms only            V14 future space: enough Spare Slots
+  V07 alarm baseplate = alarms only                V14 future space: enough Spare Slots
   V08 IO type / CHARM / terminal block agree      V15 SE4302T02 <=> SE4502
                                                   V16 empty baseplates at the end of CIOC 4
 Never raises: a row it cannot read becomes a V00 violation.
@@ -163,13 +163,14 @@ def _check(rows: list[_R], cfg: Config, expected_keys: set[str] | None, out: lis
         if len(fams) > 1:
             add("V06", "error", f"{cab} {cioc}", "Segregation A and B share this CIOC.")
 
-    # V07 alarm baseplate --------------------------------------------------------------------
+    # V07 alarm baseplate (a project choice: rules.alarm_cioc / alarm_bp) -----------------------------------
     for r in rows:
-        on_alarm_bp = r.cioc_idx == 1 and r.bp == 1
+        on_alarm_bp = r.cioc_idx == rules.alarm_cioc and r.bp == rules.alarm_bp
         if on_alarm_bp and r.status not in (STATUS_ALARM, STATUS_SLOT):
             add("V07", "error", r.ref, f"A {r.status} row sits on the cabinet-alarm baseplate.")
         if r.status == STATUS_ALARM and not on_alarm_bp:
-            add("V07", "error", r.ref, "A cabinet alarm is not on CIOC 1, baseplate 1.")
+            add("V07", "error", r.ref, f"A cabinet alarm is not on CIOC {rules.alarm_cioc}, baseplate {rules.alarm_bp} "
+                                       "(the project's cabinet-alarm baseplate).")
 
     # V08 / V15 hardware ----------------------------------------------------------------------
     allowed_pairs = {(hardware(p).charm_type, hardware(p).tb_part) for p in PROFILES}

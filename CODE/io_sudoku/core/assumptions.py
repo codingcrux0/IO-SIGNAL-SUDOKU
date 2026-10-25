@@ -26,8 +26,11 @@ ASSUMPTIONS: tuple[Assumption, ...] = (
                "Project lead"),
     Assumption("A03", "The 10% wired-spare quota is counted on Field signals only, per IO type, per controller.",
                "Project allocation rules, section 3D.3 (wired spares).", "Senior engineer"),
-    Assumption("A04", "Cabinet alarms are not counted as field signals for the spare quota and use only baseplate 1 of CIOC 1.",
-               "Project allocation rules, section 3D.1 (cabinet alarms), and the client's sample allocation.", "Senior engineer"),
+    Assumption("A04", "Cabinet alarms are not counted as field signals for the spare quota and use only the project's "
+               "cabinet-alarm baseplate (CIOC 1, baseplate 1 unless the rule pack says otherwise). This is a project choice, "
+               "not a DeltaV rule.",
+               "Project allocation rules, section 3D.1 (cabinet alarms), the VIT allocation guide, and the client's sample "
+               "allocation.", "Senior engineer"),
     Assumption("A05", "Section / Sub Unit is worked out from the tag number by a simple rule table; it is informational only.",
                "Seen in the client's sample allocation (not a fixed formula).", "Senior engineer"),
     Assumption("A06", "Revision No is '00' on a first run; later revisions stamp only the changed rows with the revision label.",
@@ -42,8 +45,8 @@ ASSUMPTIONS: tuple[Assumption, ...] = (
                "The two families never share a CIOC.", "Project allocation rules, section 3D.2 (segregation), and the DeltaV allocation guideline.", "Project lead"),
     Assumption("A11", "Cabinet, system cabinet and controller names for some technical rooms were inferred from the MDB, "
                "not read from the configured topology.", "Worked out from the MDB because the configured topology had no entry.", "Senior engineer"),
-    Assumption("A12", "Default project rules (pack VIT-2026): 10% wired spares, 10% future space, the last 4 baseplates of "
-               "CIOC 4 kept empty (at least 3 must be empty).", "Project allocation rules, section 3D.3, and the default rule pack VIT-2026.", "Client"),
+    Assumption("A12", "Default project rules (pack VIT-2026): cabinet alarms on CIOC 1, baseplate 1, 10% wired spares "
+               "(rounded up), 10% future space, the last 4 baseplates of CIOC 4 kept empty (at least 3 must be empty).", "Project allocation rules, section 3D.3, and the default rule pack VIT-2026.", "Client"),
 )
 
 

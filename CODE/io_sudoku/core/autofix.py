@@ -161,6 +161,7 @@ LEFT_WHY: dict[str, str] = {
     "ALARM-UNKNOWN-KIND": "The alarm tag does not end in a known kind (-T, -AC, -DC ...). Only the engineer knows which it is.",
     "NO-CABINET-FOR-ALARM": "The alarm names a cabinet that is not configured. Only the engineer knows the right cabinet.",
     "MISSING-SIGNAL-LEVEL": "The signal level is an instrument fact, so it is never guessed.",
+    "DIR-CONTACT-CHECK": "The contact type is an instrument fact: only the engineer can confirm the input is a dry contact.",
     "UNKNOWN-DOR-DUTY": "The output's duty (normal or high current) cannot be told from the file; please confirm it.",
     "ROW-MISALIGNED": "The values of the row slipped out of their columns in a way that cannot be repaired safely.",
 }

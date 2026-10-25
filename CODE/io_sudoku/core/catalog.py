@@ -147,6 +147,9 @@ def is_high_current(sig: Signal, rules: RulesCfg) -> bool:
     return bool(code) and code in {str(c).upper() for c in rules.high_current_codes}
 
 
+_DRY_WORDS = ("voltfree", "dry", "potentialfree", "drycontact")      # signal levels that ARE a dry contact
+
+
 def profile_for(sig: Signal, rules: RulesCfg, log: TQLog | None = None) -> str:
     """Pick the hardware profile of a FIELD signal (alarms use alarm_hardware instead)."""
     def note(tq_id: str) -> None:
@@ -171,6 +174,9 @@ def profile_for(sig: Signal, rules: RulesCfg, log: TQLog | None = None) -> str:
     if io == "AOR":
         return "AOR"
     if io == "DIR":
+        level = text_key(sig.signal_level)
+        if level and not any(w in level.replace(" ", "").replace("-", "") for w in _DRY_WORDS):
+            note("DIR-CONTACT-CHECK")         # the VIT guide: start from the real electrical signal (contact type)
         return "DIR"
     if io == "DOR":
         if not sig.instrument_type and not sig.instrument_code:

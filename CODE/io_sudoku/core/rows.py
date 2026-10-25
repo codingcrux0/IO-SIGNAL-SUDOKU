@@ -5,7 +5,7 @@ baseplate, channel; "Sr. No." counts 1..N over the whole file.  The four Tag Sta
 values are filled exactly as the official sample does:
 
   Field          real signal: data from the MDB, hardware from the catalogue profile
-  Cabinet Alarm  diagnostic alarm on CIOC 1 / baseplate 1
+  Cabinet Alarm  diagnostic alarm on the cabinet-alarm baseplate (CIOC 1 / baseplate 1 by default)
   Wired Spare    DSP tag, SPARE <type> text, hardware of its cable, Location/Unit
                  inherited from the cable's signals
   Spare Slot     SE6103 protection cover; keeps the cable/pair when one is reserved

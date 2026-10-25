@@ -4,9 +4,9 @@ Slots of one CIOC are numbered by a linear POSITION 0..95:
     position = (baseplate - 1) * 12 + (channel - 1)
 so CHARM_No within the CIOC is simply position + 1 (the CLAUDE_RULES formula).
 
-Fixed rules enforced HERE (they cannot be configured away):
-  * CIOC 1, baseplate 1 (positions 0-11) is reserved for Cabinet Alarms - no field cable
-    may use it.
+Rules enforced HERE:
+  * ONE baseplate is reserved for Cabinet Alarms - no field cable may use it.  Which one is a project choice
+    (rules.alarm_cioc / alarm_bp, default CIOC 1, baseplate 1 = positions 0-11 of CIOC 1).
   * A cable run is contiguous and aligned: 6-pair cables start on channel 1 or 7 of a
     baseplate, everything else on channel 1 of a baseplate.
   * The last `end_reserve_bps` baseplates of CIOC 4 are kept EMPTY (CLAUDE_RULES asks for
@@ -23,7 +23,7 @@ from io_sudoku.core.catalog import profile_for
 from io_sudoku.core.cables import CableBlock
 from io_sudoku.core.config import CabinetCfg, RulesCfg
 from io_sudoku.core.constants import (
-    ALARM_CIOC, ALARM_SLOTS, BPS_PER_CIOC, CIOCS_PER_CAB, SLOTS_PER_BP, SLOTS_PER_CIOC,
+    ALARM_SLOTS, BPS_PER_CIOC, CIOCS_PER_CAB, SLOTS_PER_BP, SLOTS_PER_CIOC,
     STATUS_ALARM, STATUS_FIELD, STATUS_SLOT,
 )
 from io_sudoku.core.models import Signal
@@ -76,8 +76,19 @@ class CabinetGrid:
         """First position of CIOC 4 that belongs to the empty end reserve."""
         return (BPS_PER_CIOC - self.rules.end_reserve_bps) * SLOTS_PER_BP
 
+    def alarm_range(self) -> tuple[int, int]:
+        """(first, last + 1) position of the cabinet-alarm baseplate within its CIOC (rules.alarm_cioc)."""
+        first = (self.rules.alarm_bp - 1) * SLOTS_PER_BP
+        return first, first + ALARM_SLOTS
+
     def is_alarm_pos(self, cioc: int, pos: int) -> bool:
-        return cioc == ALARM_CIOC and pos < ALARM_SLOTS
+        first, end = self.alarm_range()
+        return cioc == self.rules.alarm_cioc and first <= pos < end
+
+    def overlaps_alarm(self, cioc: int, start: int, end: int) -> bool:
+        """True if positions start..end-1 of `cioc` touch the cabinet-alarm baseplate."""
+        first, last = self.alarm_range()
+        return cioc == self.rules.alarm_cioc and start < last and end > first
 
     def is_end_reserved(self, cioc: int, pos: int) -> bool:
         return (self.rules.end_reserve_bps > 0 and cioc == CIOCS_PER_CAB and pos >= self.end_reserve_start())
@@ -98,14 +109,12 @@ class CabinetGrid:
         """Lowest aligned start position where `block` fits entirely, or None."""
         length = block.length
         step = 6 if length == 6 else SLOTS_PER_BP
-        low = ALARM_SLOTS if cioc == ALARM_CIOC else 0
         high = SLOTS_PER_CIOC
         if cioc == CIOCS_PER_CAB and not allow_reserved and self.rules.end_reserve_bps > 0:
             high = self.end_reserve_start()
-        first = -(-low // step) * step
         occupancy = self.occ[cioc]
-        for start in range(first, high - length + 1, step):
-            if not any(occupancy[start:start + length]):
+        for start in range(0, high - length + 1, step):
+            if not self.overlaps_alarm(cioc, start, start + length) and not any(occupancy[start:start + length]):
                 return start
         return None
 
@@ -114,8 +123,8 @@ class CabinetGrid:
         end = start + block.length
         if not (1 <= cioc <= CIOCS_PER_CAB) or start < 0 or end > SLOTS_PER_CIOC:
             raise ValueError("block outside the CIOC")
-        if cioc == ALARM_CIOC and start < ALARM_SLOTS:
-            raise ValueError("baseplate 1 of CIOC 1 is reserved for cabinet alarms")
+        if self.overlaps_alarm(cioc, start, end):
+            raise ValueError(f"CIOC {self.rules.alarm_cioc}, baseplate {self.rules.alarm_bp} is reserved for cabinet alarms")
         if any(self.occ[cioc][start:end]):
             raise ValueError("slots already in use")
         if block.key in self.placements:
@@ -144,20 +153,21 @@ class CabinetGrid:
             self.cells.pop((cioc, bp, ch), None)
 
     def place_alarm(self, sig: Signal, ch: int, kind: str) -> None:
-        """Put a cabinet alarm on channel `ch` of CIOC 1, baseplate 1."""
+        """Put a cabinet alarm on channel `ch` of the cabinet-alarm baseplate."""
         if not 1 <= ch <= ALARM_SLOTS:
             raise ValueError("alarm channel out of range")
         cable_key = match_key(sig.cable_no)
-        self.cells[(ALARM_CIOC, 1, ch)] = Cell(
+        self.cells[(self.rules.alarm_cioc, self.rules.alarm_bp, ch)] = Cell(
             STATUS_ALARM, sig, sig.cable_no, cable_key, sig.pair_no, sig.pair_text, sig.cable_size,
             sig.io_type, alarm_kind=kind)
-        self.occ[ALARM_CIOC][ch - 1] = 1
+        self.occ[self.rules.alarm_cioc][self.alarm_range()[0] + ch - 1] = 1
 
     # --- counting -----------------------------------------------------------------------
     def used_channels(self) -> int:
         """Channels taken by field cables (the alarm baseplate does not count)."""
         total = sum(sum(o) for o in self.occ.values())
-        return total - sum(self.occ[ALARM_CIOC][:ALARM_SLOTS])
+        first, end = self.alarm_range()
+        return total - sum(self.occ[self.rules.alarm_cioc][first:end])
 
     def free_non_reserved(self) -> int:
         """Free channels outside the alarm baseplate and the end reserve."""

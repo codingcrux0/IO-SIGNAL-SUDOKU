@@ -34,6 +34,7 @@ def scope_text(template: str, args: dict[str, Any]) -> str:
         "spare_pct": "every wired spare (the quota per IO type and controller)",
         "future_pct": "every Spare Slot kept free for the future",
         "end_reserve_bps": f"the last {a.get('value')} baseplates of CIOC 4",
+        "alarm_baseplate": f"CIOC {a.get('alarm_cioc')}, baseplate {a.get('alarm_bp')} of every marshalling cabinet",
         "add_cabinet": f"the signals of technical room {a.get('room')}",
     }.get(template) or (f"signals with a value in {a.get('column')}, or covered by one of its checks" if template == "column_rule"
                         else f"signals whose {a.get('match_column')} contains '{a.get('match_text')}'")
@@ -62,6 +63,9 @@ def applies_to(template: str, args: dict[str, Any], rows: list[dict[str, Any]],
         elif template == "end_reserve_bps":
             pos = cellcheck.position(r)
             hit = bool(pos) and pos[1] == CIOCS_PER_CAB and pos[2] > BPS_PER_CIOC - int(a.get("value") or 0)
+        elif template == "alarm_baseplate":
+            pos = cellcheck.position(r)
+            hit = bool(pos) and (pos[1], pos[2]) == (int(a.get("alarm_cioc") or 0), int(a.get("alarm_bp") or 0))
         elif template == "add_cabinet":
             hit = status in SIGNALS and _s(r, "Technical Room").casefold() == str(a.get("room", "")).casefold()
         else:
