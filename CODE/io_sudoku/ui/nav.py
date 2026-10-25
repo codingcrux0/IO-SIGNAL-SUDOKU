@@ -47,6 +47,9 @@ def link_to(text: str, label: str) -> str:
     return f"[{text.replace('[', '(').replace(']', ')')}](#go-{slug(place.label)})"
 
 
+REVIEWED_HEADINGS = ("Problems Again On Items You Reviewed Before", "Everything Reviewed So Far")
+
+
 def go(place: search.Place) -> None:
     """Open a place: its view, its tab, then scroll to its heading (or to the top of the view).
     Used by the links and by the search bar."""
@@ -58,6 +61,8 @@ def go(place: search.Place) -> None:
     s["view"] = place.view
     if place.tab_key:
         s[place.tab_key] = place.tab
+    if place.view == "TQ Board":                  # the TQ Board's own two tabs: Reviewed Before, or the questions
+        s[state.TQ_TAB_KEY] = state.REVIEWED_TAB if place.heading in REVIEWED_HEADINGS else state.QUESTIONS_TAB
     s["scroll_to"] = place.heading or "__top__"
 
 

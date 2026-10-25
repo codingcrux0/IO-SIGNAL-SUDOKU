@@ -116,15 +116,21 @@ Changes) - Preflight (data quality before solving) - Solve (Run Allocation, read
 Controller) - Cabinet Layout (Slot Map, Front & Rear Drawings, All Cabinet Drawings, Why Is It Here?; click a slot to
 check its rules) - Rule Radar (two tabs: Rule Check - pick cells, live log of every rule that applies, Signal Path;
 Rule Impact - pick one rule or constraint, see every cell, CHARM and signal it affects, met or broken, on a highlighted
-cabinet map) - TQ Board (Sign Off The Warnings with Edit buttons and the arrow for suggested fixes, All Questions with
-Error / Warning / Info filters and page buttons, Copy Questions For An Owner, Answer A Question with Verify, Pin A
-Cable) - Parts (bill of
-materials) - Revision (three tabs: Compare With A New MDB with View In Detail; Revision History with Undo Last Revision
-and Delete; Revision Simulator, which makes a pretend client revision and estimates the rework saved) - Rules (Locked
+cabinet map) - TQ Board (two tabs: Questions And Sign-Off - Sign Off The Warnings with Edit buttons and the arrow for
+suggested fixes, All Questions with Error / Warning / Info filters and page buttons, Copy Questions For An Owner, Answer A
+Question with Verify, Pin A Cable; Reviewed Before - every Approve, Problem, Edit, answer, note and verified or rejected
+fix is remembered, and an item reviewed before that has a problem again is listed there with how often it was reviewed,
+approved, rejected and fixed, and its whole history) - Parts (bill of
+materials) - Revision (four tabs: Compare With A New MDB with Check Allocation First - a pop-up preview of Rev B next
+to the current allocation, better or worse, the whole allocation, its questions and changes and the rework hours,
+then Save This Revision or Discard - and Compare Revisions, View In Detail; Revision Library - every saved revision,
+opened by its name with all its data; Revision History with Undo Last Revision and Delete; Revision Simulator, which
+makes a pretend client revision and estimates the rework saved) - Rules (Locked
 Rules, Propose A Rule: Settings, New Columns, Constraints; Review Queue with Verify and Reject buttons; Suggested
 Fixes; Preview And Activate; Where It Applies) - Files (view and download every output). A search bar at the top jumps
 to any page or section. "Ask The Helpdesk" buttons next to a TQ, the answer box, a Rule Check cell, a Rule Impact rule,
-Why Is It Here? and a revision change open the Helpdesk about that thing; each topic is its own conversation.
+Why Is It Here?, a revision change, a Reviewed Before item and a revision preview open the Helpdesk about that thing;
+each topic is its own conversation.
 There is no Health page and no Simulator page any more (the simulator is a tab of Revision), and Rule Check and Rule
 Impact are the two tabs of Rule Radar; problems in the file are the questions on the TQ Board."""
 

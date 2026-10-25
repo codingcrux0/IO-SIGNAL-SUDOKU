@@ -35,6 +35,8 @@ QUICK = {"tq": ("Why was this question raised?", "How do I fix it in the app?", 
          "impact": ("Explain this rule in simple words.", "Why is it broken or flagged here?", "How do I fix those cells?"),
          "tag": ("Explain why it was placed here.", "Could it go somewhere else?", "Are there questions about it?"),
          "change": ("Why did this signal change?", "Is this change safe?", "What should I check next?"),
+         "history": ("Why did this problem come back?", "What was decided before?", "Should I decide the same way?"),
+         "preview": ("Is this revision better?", "What should I check before saving it?", "Where does the rework come from?"),
          "rule": ("Which kind of rule do I need?", "Help me word this rule.", "What will this rule change?"),
          GENERAL: ("What should I do next?", "Explain my readiness status.", "How do the TQ warnings get signed off?")}
 

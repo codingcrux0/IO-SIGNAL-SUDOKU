@@ -15,7 +15,10 @@ Open the app (`streamlit run app.py`). Keep **Try With Sample Data** as the offl
 6. **TQs (25 s).** **TQ Board**: grouped by owner with e-mail-ready text. Apply a suggested answer, press *Re-solve*.
 7. **The 5% revision (50 s).** **Revision → Revision Simulator** at 5%: starting from scratch moves many tags, IO Sudoku
    only the changed ones (estimate in hours, with a chart; *Run For Every Size* shows 1-20%).
-   Then **Compare With A New MDB**: Rev A = current result, upload a Rev B MDB, *Compare Revisions*, show the four tables and the redline download.
+   Then **Compare With A New MDB**: Rev A = current result, upload a Rev B MDB, press *Check Allocation First*: the
+   pop-up says better or worse and how many hours keeping positions saves; *Save This Revision*, open it again by name
+   in the **Revision Library**, show the four tables and the redline download. On the TQ Board, **Reviewed Before**
+   lists the signals you decided on earlier that have a problem again, with their whole history.
 8. **Governed rules and AI (35 s).** **Rules**: propose a rule, press **Verify** beside it in the Review Queue,
    *Preview Impact*, *Activate*. The AI box drafts only a *pending* proposal. "AI never touches the allocation."
 9. **Trust (15 s).** **Files**: open the run manifest in the page; it carries the SHA-256 fingerprint; re-running gives the same hash. Parts list and headroom on **Parts**.

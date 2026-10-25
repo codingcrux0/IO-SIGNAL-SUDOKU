@@ -12,7 +12,7 @@ import time
 
 import streamlit as st
 
-from io_sudoku.core import readiness as readiness_mod
+from io_sudoku.core import readiness as readiness_mod, reviewlog
 from io_sudoku.core.overrides import overrides_to_json
 from io_sudoku.core.rulepack import default_pack, pack_hash
 from io_sudoku.samples import sample_mdb_bytes
@@ -28,6 +28,9 @@ SIM_TAB = "Revision Simulator"
 RULE_TAB_KEY = "rule_tab"                    # which tab of Rule Radar is open
 CHECK_TAB, IMPACT_TAB = "Rule Check", "Rule Impact"
 RULE_TABS = (CHECK_TAB, IMPACT_TAB)
+TQ_TAB_KEY = "tq_tab"                        # which tab of the TQ Board is open
+QUESTIONS_TAB, REVIEWED_TAB = "Questions And Sign-Off", "↺ Reviewed Before"
+TQ_TABS = (QUESTIONS_TAB, REVIEWED_TAB)
 # Old links keep working: a page that became a tab opens that tab; a removed page (Health) opens Upload.
 OLD_VIEW_NAMES = {"Downloads": "Files", "Grid": "Cabinet Layout", "Drawings": "Cabinet Layout", "Simulator": "Revision",
                   "Rule Check": "Rule Radar", "Rule Impact": "Rule Radar"}
@@ -44,7 +47,8 @@ KEYS = {"mdb_bytes": None, "mdb_name": None, "mdb_sha": None, "template_bytes": 
         "rule_preview": None, "files_pick": None, "signoffs": {}, "solve_key": None,
         "history": [], "edit_target": None, "edit_return": None, "mdb_original": None, "edit_log": [], "scroll_to": None,
         "rc_cells": [], "tq_notes": {}, "suggestions": [], "chat": None, "chats": {}, "answer_check": None, "confirm": None,
-        "inputs_by_key": {}, "blobs": {}, "ri_pick": None,
+        "inputs_by_key": {}, "blobs": {}, "ri_pick": None, "review_log": [], "edit_tq": None, "rev_preview": None,
+        "rev_library": [],
         "sim_pct": 5, "sim_seed": 1, "sim_moved": 15.0, "sim_renamed": 3.0, "sim_added": 10.0, "sim_deleted": 5.0}
 STALE_REASON = "Your inputs changed after this allocation (for example the file was edited). Re-allocate to check them."
 
@@ -156,10 +160,11 @@ def on_workspace_upload() -> None:
 
 
 def notes_for_export() -> dict:
-    """The engineers' TQ notes and suggestions, as saved in the workspace (notes.json)."""
+    """The engineers' TQ notes, suggestions and review memory, as saved in the workspace (notes.json)."""
     from io_sudoku.core.suggestion import to_dict
     s = st.session_state
-    return {"notes": dict(s.get("tq_notes") or {}), "suggestions": [to_dict(x) for x in s.get("suggestions") or []]}
+    return {"notes": dict(s.get("tq_notes") or {}), "suggestions": [to_dict(x) for x in s.get("suggestions") or []],
+            "reviews": [reviewlog.to_dict(e) for e in s.get("review_log") or []]}
 
 
 def _load_notes(saved: dict) -> None:
@@ -171,6 +176,12 @@ def _load_notes(saved: dict) -> None:
     items = [from_dict(x) for x in (saved.get("suggestions") or []) if isinstance(x, dict)] if isinstance(saved, dict) else []
     known = {x.id for x in s["suggestions"]}
     s["suggestions"] = s["suggestions"] + [x for x in items if x is not None and x.id not in known]
+    reviews = saved.get("reviews") if isinstance(saved, dict) else None
+    if isinstance(reviews, list):
+        seen = {json.dumps(reviewlog.to_dict(e), sort_keys=True) for e in s["review_log"]}
+        fresh = [e for e in (reviewlog.from_dict(x) for x in reviews) if e is not None
+                 and json.dumps(reviewlog.to_dict(e), sort_keys=True) not in seen]
+        s["review_log"] = reviewlog.record(fresh, *s["review_log"])      # the saved past first, then this session
 
 
 def mark_stale() -> None:
@@ -195,6 +206,7 @@ def on_solve(remember_run: bool = True) -> None:
         return
     try:
         key = inputs_key()
+        before = s["result"]
         result = ui_logic.cached_solve(
             s["mdb_bytes"], ui_logic.pack_json(s["pack"]), overrides_to_json(s["overrides"]),
             json.dumps({k: list(v) for k, v in s["pins"].items()}), json.dumps(s["column_overrides"], sort_keys=True),
@@ -204,6 +216,7 @@ def on_solve(remember_run: bool = True) -> None:
         if remember_run:
             remember(result, "Allocation run", s["mdb_name"] or "MDB", s["mdb_sha"] or "", key)
             _keep_inputs(key)
+        s["review_log"] = reviewlog.after_solve(s["review_log"], before, result, revision_name(), time.strftime("%Y-%m-%d %H:%M"))
         if s["selected_cabinet"] not in ui_logic.cabinet_names(result.rows) and not str(s["selected_cabinet"] or "").endswith("All Cabinet Drawings"):
             s["selected_cabinet"] = (ui_logic.cabinet_names(result.rows) or [None])[0]
     except Exception:  # noqa: BLE001
@@ -230,6 +243,28 @@ def refresh_readiness() -> None:
     past = s.get("history") or []
     if past and past[-1].solve_key == s["solve_key"] and not s.get("stale"):
         past[-1].status, past[-1].reasons = verdict.status, verdict.reasons      # keep the latest summary current
+
+
+# ------------------------------------------------------------------ review memory (core.reviewlog)
+def revision_name() -> str:
+    """The saved revision the allocation on screen belongs to, with its file ('Revision 2 · Sample_MDB.xlsx')."""
+    s = st.session_state
+    snap = next((x for x in reversed(s.get("history") or []) if x.solve_key == s.get("solve_key")), None)
+    name = snap.name if snap is not None else "Not saved yet"
+    return f"{name} · {s.get('mdb_name') or 'MDB'}"
+
+
+def reviewer() -> str:
+    s = st.session_state
+    return (s.get("note_by") or s.get("answer_by") or "").strip()
+
+
+def note_review(tq_id: str, ref: str, action: str, detail: str = "", by: str | None = None) -> None:
+    """Write one review decision down (what, who, when, which revision, where the signal sat)."""
+    s = st.session_state
+    event = reviewlog.make_event(s["result"], tq_id, ref, action, detail=detail, by=reviewer() if by is None else by,
+                                 time=time.strftime("%Y-%m-%d %H:%M"), revision=revision_name())
+    s["review_log"] = reviewlog.record(s["review_log"], event)
 
 
 def remember(result, source: str, file_name: str, input_sha: str, solve_key: str) -> None:
@@ -317,10 +352,14 @@ def on_signoff(warning_key: str) -> None:
     s = st.session_state
     picked = s.get(signoff_widget_key(warning_key))
     decision = next((d for d, label in SIGNOFF_LABELS.items() if label == picked), None)
+    before = s["signoffs"].get(warning_key)
     signoffs = {k: v for k, v in s["signoffs"].items() if k != warning_key}
     if decision:
         signoffs[warning_key] = decision
     s["signoffs"] = signoffs
+    if decision != before:
+        tq_id, _, ref = warning_key.partition("|")
+        note_review(tq_id, ref, decision or "cleared")
     refresh_readiness()
 
 
@@ -329,6 +368,9 @@ def approve_all_warnings() -> None:
     if s["result"] is None:
         return
     keys = {readiness_mod.warning_key(w) for w in readiness_mod.warnings_of(s["result"])}
+    for key in sorted(k for k in keys if s["signoffs"].get(k) != readiness_mod.APPROVED):
+        tq_id, _, ref = key.partition("|")
+        note_review(tq_id, ref, readiness_mod.APPROVED, "Approve All Warnings")
     s["signoffs"] = {**s["signoffs"], **{k: readiness_mod.APPROVED for k in keys}}
     s["approve_all_ok"] = False
     refresh_readiness()
@@ -341,6 +383,7 @@ def open_editor(target: editing.Target | None = None, return_view: str | None = 
     s = st.session_state
     s["edit_return"] = return_view or s.get("view")
     s["edit_target"] = target
+    s["edit_tq"] = None                          # edit_for_tq sets it again: which question this edit fixes
     s["edit_search"], s["edit_row"], s["edit_cols"] = "", 0, []    # never keep the search of an earlier visit
     if target is not None and target.row is None and target.search:
         s["edit_search"] = target.search
@@ -398,12 +441,14 @@ def edit_for_tq(tq_id: str, ref: str, nth: int = 0) -> None:
             flash("info", f"{tq_id}: {plan.why}")
     elif plan.kind == "edit":
         open_editor(plan.target, s.get("view"))
+        s["edit_tq"] = (tq_id, ref)
 
 
 def leave_editor() -> None:
     s = st.session_state
     back = s.get("edit_return")
     s["edit_target"] = None
+    s["edit_tq"] = None
     s["view"] = back if back in VIEWS and back != "Edit File" else "Upload"
     s["scroll_to"] = "__top__"                   # the saved message and the Re-allocate button are at the top
 
@@ -428,6 +473,10 @@ def apply_cell_edits(edits: list[editing.CellEdit], go_back: bool) -> None:
     s["edit_log"] = s["edit_log"] + [{"Sheet": e.sheet, "Row": e.row, "Column": e.header, "Old Value": "" if e.old is None else str(e.old),
                                       "New Value": "" if e.new is None else str(e.new), "Time": stamp, "_col": e.col}
                                      for e in edits]
+    if s.get("edit_tq"):
+        tq_id, ref = s["edit_tq"]
+        note_review(tq_id, ref, "edited", "; ".join(f"row {e.row} {e.header}: '{'' if e.old is None else e.old}' → "
+                                                   f"'{'' if e.new is None else e.new}'" for e in edits[:6]))
     where = f"row {edits[0].row}, “{edits[0].header}”" if len(edits) == 1 else f"{len(edits)} cells"
     flash("success", f"Saved: {where}. The allocation is out of date until you press Re-allocate.",
           "" if go_back else "Find A Cell")
@@ -488,6 +537,8 @@ def go_to(view: str, tab: str | None = None) -> None:
         st.session_state["view"] = view
         if tab:
             st.session_state[CAB_TAB_KEY] = tab
+        if view == "TQ Board":
+            st.session_state[TQ_TAB_KEY] = QUESTIONS_TAB
 
 
 def on_sample() -> None:

@@ -6,7 +6,7 @@ import time
 
 import streamlit as st
 
-from io_sudoku.core import helpcontext, readiness as readiness_mod
+from io_sudoku.core import helpcontext, readiness as readiness_mod, reviewlog
 from io_sudoku.core.config import Config
 from io_sudoku.core.constants import IO_TYPES
 from io_sudoku.core.ingest import read_mdb
@@ -18,7 +18,7 @@ from io_sudoku.core.tq import TQLog
 from io_sudoku.core.tqlife import group_by_owner, tqs_as_email_text
 from io_sudoku.core.validate import validate
 from io_sudoku.ui import editing, state, theme, ui_logic
-from io_sudoku.ui.views import assistant
+from io_sudoku.ui.views import assistant, reviewed
 from io_sudoku.ui.nav import link
 from io_sudoku.ui.views._common import (allocate_button, ask_first, heading, md_escape, pager, result_or_empty,
                                         tq_table)
@@ -49,14 +49,25 @@ def render() -> None:
     st.markdown(theme.severity_cards_html(counts), unsafe_allow_html=True)
     if not s.get("stale"):                       # when out of date, the banner above already has the button
         allocate_button("reallocate_tq")
-    _signoff(result)
-    if not tqs:
-        st.success("No questions were raised. Nothing needs an answer.")
-    else:
-        _all_questions(tqs, counts)
-        _email_text(tqs)
-        _answers(result)
-    _pins(result)
+    back = reviewlog.returning(s["review_log"], result, s["signoffs"])
+    if back and s.get(state.TQ_TAB_KEY) != state.REVIEWED_TAB:
+        st.warning(f"↺ {len(back):,} item(s) you reviewed before have a problem again. Open the "
+                   f"{link('Reviewed Before', 'TQ Board', 'Problems Again On Items You Reviewed Before')} tab to see "
+                   "what was decided about them last time.")
+    if s.get(state.TQ_TAB_KEY) not in state.TQ_TABS:
+        s[state.TQ_TAB_KEY] = state.TQ_TABS[0]
+    questions_tab, reviewed_tab = st.tabs(list(state.TQ_TABS), key=state.TQ_TAB_KEY, on_change="rerun")
+    with questions_tab:
+        _signoff(result)
+        if not tqs:
+            st.success("No questions were raised. Nothing needs an answer.")
+        else:
+            _all_questions(tqs, counts)
+            _email_text(tqs)
+            _answers(result)
+        _pins(result)
+    with reviewed_tab:
+        reviewed.render(result, back)
 
 
 # ------------------------------------------------------------------ sign-off box
@@ -140,9 +151,12 @@ def _row(result, page: int, i: int, severity: str, kind: str, ref: str, text: st
     tq_key = f"{kind}|{ref}"
     left, mid, right, more = st.columns([5, 2.2, 1.1, .45], vertical_alignment="center")
     mark = "●" if severity == "error" else "▲"
-    left.markdown(f"{mark} **{md_escape(kind)}** · {md_escape(ref) or '-'}  \n"
+    past = [e for e in s["review_log"] if e.item == reviewlog.item_key(ref)]
+    seen = f" · <span style=\"color:#58a6ff\">↺ reviewed {reviewlog.counts(past)['reviewed']}× before</span>" \
+        if reviewlog.counts(past)["reviewed"] else ""
+    left.markdown(f"{mark} **{md_escape(kind)}** · {md_escape(ref) or '-'}{seen}  \n"
                   f"<small>{md_escape(ui_logic.short_text(text))}</small>", unsafe_allow_html=True,
-                  help=_details(result, kind, ref, text))
+                  help=_details(result, kind, ref, text) + ("\n\n" + reviewlog.summary_text(past) if past else ""))
     nth = extra if severity == "error" else 0
     plan = state.fix_plan(kind, ref, nth)
     tip = plan.why or ("Open the cell this question is about on the Edit File page." if plan.target is None or
@@ -226,6 +240,9 @@ def _save_note(tq_key: str, h: str) -> None:
     notes = dict(s["tq_notes"])
     if text:
         notes[tq_key] = {"text": text, "by": (s.get("note_by") or "").strip(), "time": _now()}
+        if (s["tq_notes"].get(tq_key) or {}).get("text") != text:
+            tq_id, _, ref = tq_key.partition("|")
+            state.note_review(tq_id, ref, "note", text)
         state.flash("success", "Note saved. It is kept with the project for the next person.", f"fix_{h}")
     else:
         notes.pop(tq_key, None)
@@ -242,6 +259,7 @@ def _send_note(kind: str, ref: str, h: str) -> None:
         state.flash("error", " ".join(errors), f"fix_{h}")
         return
     s["suggestions"] = s["suggestions"] + [sg]
+    state.note_review(kind, ref, "suggested", sg.text, by=sg.author)
     state.flash("success", "Sent for verification. Press Verify on the Rules page (Suggested Fixes) to accept it.", f"fix_{h}")
 
 
@@ -412,6 +430,8 @@ def _apply_answer(cfg: Config) -> None:
         state.flash("error", "This answer cannot be used: " + " ".join(problems), ANSWER)
         return
     s["overrides"] = [o for o in s["overrides"] if (match_key(o.tag_key), o.field) != (match_key(override.tag_key), override.field)] + [override]
+    if tq_id:
+        state.note_review(tq_id, tag, "answered", f"{field.replace('_', ' ')} = {value}", by=who)
     s["answer_check"] = {"tag": tag, "field": field, "value": value, "tq_id": tq_id, "state": "waiting", "open": []}
     state.mark_stale()
     state.flash("success", f"Answer saved for {tag}: {field.replace('_', ' ')} = {value}.", ANSWER)
@@ -453,6 +473,10 @@ def _verify_answer() -> None:
     still = [t for t in s["result"].tqs if match_key(t.ref) == key and t.severity in ("error", "warning")]
     check["open"] = [(t.tq_id, t.severity, ui_logic.short_text(t.message)) for t in still]
     check["state"] = "failed" if still else "ok"
+    if check.get("tq_id"):
+        state.note_review(check["tq_id"], check["tag"], "answer-failed" if still else "answer-ok",
+                          f"{check['field'].replace('_', ' ')} = {check['value']}"
+                          + (f"; still open: {', '.join(i for i, *_ in check['open'])}" if still else ""))
     s["answer_check"] = dict(check)
 
 

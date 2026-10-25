@@ -43,6 +43,11 @@ Moving around and fixing things:
   next to a question shows its suggested fix: write your own suggestion (kept in the workspace for the next person)
   or send it for verification, or talk it through with the **Helpdesk**. **Answer A Question** picks the tag from a list and then asks you to **verify** the answer: the tool
   re-allocates and says whether the question is really cleared (if not, an `ANSWER-UNRESOLVED` warning is raised).
+- **TQ Board → Reviewed Before**: every Approve, Problem, Edit, answer, note and verified or rejected fix is
+  remembered (who, when, in which revision, and where the signal sat). When a later allocation or a new revision
+  raises a question again on a reviewed signal, cable or cabinet, it is listed here as **NEW PROBLEM** or **CAME
+  BACK**. Hover the **i** for how often it was reviewed, approved, rejected and fixed; **▸** shows the whole history
+  and the signal *then* next to *now*. The memory is saved in the workspace download. It never changes a sign-off.
 - **Helpdesk** (the round **💬 Help** button at the bottom right of every page): a customer-support chat that slides
   in on the right; the page shrinks to make room and goes back when you close it. It explains pages, questions and
   rules, suggests how to fix a problem, and words suggestions and rules (it can also turn a request into a rule
@@ -83,6 +88,12 @@ Moving around and fixing things:
 - **Revision → Compare With A New MDB**: each count has **View In Detail**; pick a signal to see every column that
   changed, the rules and decisions behind its new place, and open it on Rule Check. The impact report also opens as a
   web page in the browser (**View In The Browser**, or download the `.html`).
+- **Revision → Check Allocation First**: allocates Rev B and shows it in a pop-up **before anything is saved**: better
+  or worse than the allocation you have now (errors, set aside, warnings, cabinets, readiness), the rework hours
+  keeping positions versus allocating again from scratch, the whole allocation, its questions (new, resolved, and
+  items you reviewed before) and its changes. **Save This Revision** (with a name) or **Discard**.
+- **Revision → Revision Library**: every saved revision by name; click a name to see all its data again, download its
+  allocation and impact report, rename or delete it.
 - **Rules**: propose **Settings**, **New Columns** (a project label on some CHARM signals, never written into the
   locked 76-column allocation) or **Constraints** (checks every covered signal must pass; a broken one becomes a
   `PROJECT-RULE-BROKEN` warning). Every rule has **👁 Where It Applies**, and Preview lists every cell a new pack

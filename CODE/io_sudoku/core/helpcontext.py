@@ -220,4 +220,34 @@ def change_focus(change: Any, diffs: list[tuple[str, Any, Any]], checks: list[An
         return "A revision change", "A signal that changed between Rev A and Rev B."
 
 
-__all__ = ["MAX_CHARS", "answer_focus", "cell_focus", "change_focus", "row_line", "rule_focus", "tag_focus", "tq_focus"]
+def history_focus(result: Any, ref: str, events: list[Any], open_now: list[tuple]) -> tuple[str, str]:
+    """An item from "Reviewed Before" on the TQ Board: its open questions now and everything decided about it."""
+    try:
+        lines = [f"The user opened the Helpdesk from Reviewed Before (TQ Board), about {ref}: it was reviewed before "
+                 "and has an open problem again."]
+        if open_now:
+            lines += ["Open now:"] + [f"- {tq_id} ({sev}, {kind}): {msg}" for tq_id, sev, msg, kind in open_now[:10]]
+        lines += _where(result, ref)
+        if events:
+            lines.append("What was decided before (oldest first):")
+            for e in events[-25:]:
+                lines.append(f"- {e.time} · {e.revision} · {e.tq_id}: {e.label}" + (f" by {e.by}" if e.by else "")
+                             + (f" - {e.detail}" if e.detail else "") + (f" [was at {e.where}]" if e.where else ""))
+        return f"Reviewed Before · {ref}", _cap(lines)
+    except Exception:  # noqa: BLE001
+        return f"Reviewed Before · {ref}", f"An item that was reviewed before: {ref}."
+
+
+def preview_focus(name: str, lines_in: list[str]) -> tuple[str, str]:
+    """A revision preview (Check Allocation First on the Revision page): the comparison with the current one."""
+    try:
+        lines = [f"The user opened the Helpdesk from the preview of a revision ({name}), before deciding whether to "
+                 "save it. Nothing is saved yet. The comparison with the current allocation:"]
+        lines += [f"- {x}" for x in lines_in[:60]]
+        return f"Revision Preview · {name}", _cap(lines)
+    except Exception:  # noqa: BLE001
+        return f"Revision Preview · {name}", "A preview of a revision."
+
+
+__all__ = ["MAX_CHARS", "answer_focus", "cell_focus", "change_focus", "history_focus", "preview_focus", "row_line",
+           "rule_focus", "tag_focus", "tq_focus"]

@@ -150,6 +150,10 @@ def _decide_suggestion(sg_id: str, action: str) -> None:
     else:
         errors = sg_mod.dismiss(target, _now(), s.get(f"sgrs_{sg_id}") or "")
     s["suggestions"] = list(s["suggestions"])
+    if not errors:
+        state.note_review(target.tq_id, target.ref, "suggestion-verified" if target.status == "approved"
+                          else "suggestion-rejected", target.text + (f" (reason: {target.reason})" if target.reason else ""),
+                          by=target.reviewer or "")
     state.flash("error" if errors else "success", " ".join(errors) if errors else
                 ("Suggestion verified." if target.status == "approved" else "Suggestion rejected."), SUGGESTIONS)
 
